@@ -1,0 +1,16 @@
+Source: deployweb
+Section: utils
+Priority: optional
+Maintainer: Lenik <deployweb@bodz.net>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Homepage: https://github.com/example/deployweb
+
+Package: deployweb
+Architecture: all
+Depends: ${misc:Depends}, bash-shlib, pnpm, rsync, openssh-client, apache2
+Description: Website deployment utility
+ deployweb is a utility for deploying websites to remote servers.
+ It finds the project root, builds using pnpm, syncs files via rsync,
+ and configures Apache virtual hosts.
+

@@ -1,0 +1,49 @@
+# bash completion for deployweb
+# To install, copy this file to /etc/bash_completion.d/deployweb
+# or source it in your ~/.bashrc
+
+_deployweb() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    
+    opts="-c --config -n --name -d --domain -p --port --ssl -q --quiet -v --verbose -h --help --version"
+    
+    case "${prev}" in
+        -c|--config)
+            # Complete profile names from ~/.config/deployweb/
+            local config_dir="$HOME/.config/deployweb"
+            if [ -d "$config_dir" ]; then
+                COMPREPLY=($(compgen -W "$(ls -1 "$config_dir" 2>/dev/null)" -- "$cur"))
+            fi
+            return 0
+            ;;
+        -n|--name)
+            # No completion for name
+            return 0
+            ;;
+        -d|--domain)
+            # No completion for domain
+            return 0
+            ;;
+        -p|--port)
+            # Suggest common ports
+            COMPREPLY=($(compgen -W "80 443 8080 8443 3000 5000 9000" -- "$cur"))
+            return 0
+            ;;
+    esac
+    
+    # Complete options or directories
+    if [[ ${cur} == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+        return 0
+    else
+        # Complete directories for PROJECT-DIR
+        COMPREPLY=($(compgen -d -- "${cur}"))
+        return 0
+    fi
+}
+
+complete -F _deployweb deployweb
+

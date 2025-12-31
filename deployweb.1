@@ -1,0 +1,132 @@
+.TH DEPLOYWEB 1 "2025-01-01" "deployweb 1.0.0" "User Commands"
+.SH NAME
+deployweb \- website deployment utility
+.SH SYNOPSIS
+.B deployweb
+[\fIOPTIONS\fR] \fIPROJECT-DIR\fR
+.SH DESCRIPTION
+\fBdeployweb\fR is a utility for deploying websites to remote servers. It finds
+the project root (by looking for package.json), builds the project using pnpm,
+syncs the dist/ directory to the server, and configures Apache virtual hosts.
+.SH OPTIONS
+.TP
+\fB\-c\fR, \fB\-\-config\fR \fIPROFILE\fR
+Select server profile name or config file path. If not specified, the first
+profile found in ~/.config/deployweb/ will be used.
+.TP
+\fB\-n\fR, \fB\-\-name\fR \fINAME\fR
+Rename the deployment on the server. By default, the basename of PROJECT-DIR
+is used.
+.TP
+\fB\-d\fR, \fB\-\-domain\fR \fIDOMAIN\fR
+Set the domain name for the virtual host. Can include a port in the format
+\fIdomain:PORT\fR. Defaults to \fI<name>.com\fR.
+.TP
+\fB\-p\fR, \fB\-\-port\fR \fIPORT\fR
+Specify HTTP port(s). Can be specified multiple times. If a port is specified,
+only one VirtualHost (HTTP or HTTPS) will be created per port.
+.TP
+\fB\-\-ssl\fR
+Enable HTTPS. Creates HTTPS VirtualHost on the specified port(s), or port 443
+if no port is specified.
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Reduce verbosity.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Increase verbosity.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display help message and exit.
+.TP
+\fB\-\-version\fR
+Display version information and exit.
+.SH CONFIGURATION
+Profile configuration files are stored in \fI~/.config/deployweb/\fR. Each profile
+is a text file with the following format:
+.PP
+.RS
+.nf
+server: <host[:port]>
+wwwdir: <path>
+user: <ssh username>
+identity_file: <keyfile>
+visual_host_key: yes/no
+sudo_pw: <password>
+options: <apache directory options>
+.fi
+.RE
+.PP
+The configuration options are:
+.TP
+\fIserver\fR
+Server hostname or IP address, optionally followed by a colon and port number.
+.TP
+\fIwwwdir\fR
+Base directory on the server where websites are deployed.
+.TP
+\fIuser\fR (optional)
+SSH username for connecting to the server.
+.TP
+\fIidentity_file\fR (optional)
+Path to SSH private key file.
+.TP
+\fIvisual_host_key\fR (optional)
+Set to "yes" or "no" to control SSH host key verification
+(StrictHostKeyChecking).
+.TP
+\fIsudo_pw\fR (optional)
+Sudo password for remote commands. When specified, uses \fBsudo -A\fR
+with an askpass script that reads from \fILC_SUDO_PW\fR environment
+variable.
+.TP
+\fIoptions\fR (optional)
+Apache Directory options. Defaults to "\-Indexes +FollowSymLinks" if
+not specified.
+.SH WORKFLOW
+The deployment process follows these steps:
+.IP 1. 4
+Find project root by searching for package.json starting from PROJECT-DIR
+.IP 2. 4
+Build the project using \fBpnpm build\fR
+.IP 3. 4
+Rsync the dist/ directory to the server at \fI<wwwdir>/<name>\fR
+.IP 4. 4
+Generate and install Apache virtual host configuration
+.IP 5. 4
+Enable the site and reload Apache
+.SH EXAMPLES
+.TP
+Deploy to default profile:
+.B deployweb /path/to/project
+.TP
+Deploy with specific profile and domain:
+.B deployweb -c production -d example.com /path/to/project
+.TP
+Deploy with HTTPS on custom port:
+.B deployweb -d example.com:8443 --ssl /path/to/project
+.TP
+Deploy with multiple HTTP ports:
+.B deployweb -p 80 -p 8080 -d example.com /path/to/project
+.TP
+Deploy with custom name:
+.B deployweb -n mysite -d mysite.com /path/to/project
+.SH FILES
+.TP
+\fI~/.config/deployweb/\fR
+Directory containing profile configuration files.
+.SH SEE ALSO
+.BR pnpm (1),
+.BR rsync (1),
+.BR ssh (1),
+.BR apache2 (8)
+.SH AUTHOR
+Lenik <deployweb@bodz.net>
+.SH BUGS
+Report bugs to the project repository.
+.SH COPYRIGHT
+Copyright \(co 2025 Lenik <deployweb@bodz.net>
+.br
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+

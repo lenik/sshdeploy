@@ -27,6 +27,9 @@
     opt_dir=.
     opt_delete=0
 
+    rsync_cmd=(rsync)
+    rsync_opts=()
+
 function setopt() {
     case "$1" in
         -h|--host)
@@ -137,14 +140,14 @@ function main() {
         rsync_opts+=(-e "$ssh_cmd")
     fi
     
-    [ -f .gitignore ]   && rsync_opts+=(-f '- .gitignore')
-    [ -f .hgignore ]    && rsync_opts+=(-f '- .hgignore')
-    [ -f .svnignore ]   && rsync_opts+=(-f '- .svnignore')
-    [ -f .cvsignore ]   && rsync_opts+=(-f '- .cvsignore')
-    [ -f .darcsignore ] && rsync_opts+=(-f '- .darcsignore')
-    [ -f .ignore ]      && rsync_opts+=(-f '- .ignore')
-    [ -f .rsyncignore ] && rsync_opts+=(-f '- .rsyncignore')
-    [ -f .pushignore ]  && rsync_opts+=(-f '- .pushignore')
+    [ -f .gitignore ]   && rsync_opts+=(-f ':- .gitignore')
+    [ -f .hgignore ]    && rsync_opts+=(-f ':- .hgignore')
+    [ -f .svnignore ]   && rsync_opts+=(-f ':- .svnignore')
+    [ -f .cvsignore ]   && rsync_opts+=(-f ':- .cvsignore')
+    [ -f .darcsignore ] && rsync_opts+=(-f ':- .darcsignore')
+    [ -f .ignore ]      && rsync_opts+=(-f ':- .ignore')
+    [ -f .rsyncignore ] && rsync_opts+=(-f ':- .rsyncignore')
+    [ -f .pushignore ]  && rsync_opts+=(-f ':- .pushignore')
 
     # Build rsync command
     rsync_cmd=(rsync "${rsync_opts[@]}")
@@ -158,11 +161,24 @@ function main() {
         fi
     fi
     
-    run "${rsync_cmd[@]}" . "$remote"
+    run_rsync . "$remote"
+
+    if [ -f .pushsubdirs ]; then
+        while read subdir; do
+            subdir=${subdir%/}
+            _log1 "push subdir $subdir/"
+            run_rsync "$subdir/" "${remote%/}/$subdir/"
+        done <.pushsubdirs
+    fi
+}
+
+function run_rsync() {
+    _log1 "rsync $*"
+    run "${rsync_cmd[@]}" "$@"
 }
 
 function run() {
-    _log1 "Running: $*"
+    _log2 "Execute $*"
     "$@"
 }
 

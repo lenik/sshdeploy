@@ -1,0 +1,97 @@
+# bash completion for push-to
+# To install, copy this file to /etc/bash_completion.d/push-to
+# or source it in your ~/.bashrc
+
+_push-to() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="-h --host -p --port -u --user -P --password -i --identity -d --dir -q --quiet -v --verbose --help --version"
+
+    case "${prev}" in
+        -h|--host)
+            # Complete hostnames from known_hosts if available
+            local known_hosts_file="$HOME/.ssh/known_hosts"
+            if [ -f "$known_hosts_file" ]; then
+                local hosts=$(awk '{print $1}' "$known_hosts_file" 2>/dev/null | \
+                    sed 's/,.*//' | sort -u)
+                if [ -n "$hosts" ]; then
+                    COMPREPLY=($(compgen -W "$hosts" -- "$cur"))
+                fi
+            fi
+            return 0
+            ;;
+        -p|--port)
+            # Suggest common SSH ports
+            COMPREPLY=($(compgen -W "22 2222 2200 22000" -- "$cur"))
+            return 0
+            ;;
+        -u|--user)
+            # Suggest common usernames
+            COMPREPLY=($(compgen -W "root deploy www-data ubuntu centos" -- "$cur"))
+            return 0
+            ;;
+        -P|--password)
+            # No completion for password
+            return 0
+            ;;
+        -i|--identity)
+            # Complete SSH key files
+            COMPREPLY=($(compgen -f -X '!*.pem' -- "$cur"))
+            COMPREPLY+=($(compgen -f -X '!*id_*' -- "$cur"))
+            return 0
+            ;;
+        -d|--dir)
+            # Complete directories (remote paths, but complete local for hint)
+            COMPREPLY=($(compgen -d -- "$cur"))
+            return 0
+            ;;
+    esac
+
+    # Complete options or remote specification
+    if [[ ${cur} == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+        return 0
+    else
+        # Check if we already have a remote argument
+        local has_remote=0
+        local i
+        for i in "${COMP_WORDS[@]:1}"; do
+            # Skip options and their arguments
+            case "$i" in
+                -h|--host|-p|--port|-u|--user|-P|--password|-i|--identity|-d|--dir)
+                    continue
+                    ;;
+                -*)
+                    continue
+                    ;;
+                *)
+                    # This looks like a remote specification
+                    has_remote=1
+                    break
+                    ;;
+            esac
+        done
+
+        if [ $has_remote -eq 0 ]; then
+            # No remote yet, suggest hostnames
+            local known_hosts_file="$HOME/.ssh/known_hosts"
+            if [ -f "$known_hosts_file" ]; then
+                local hosts=$(awk '{print $1}' "$known_hosts_file" 2>/dev/null | \
+                    sed 's/,.*//' | sort -u)
+                if [ -n "$hosts" ]; then
+                    COMPREPLY=($(compgen -W "$hosts" -- "$cur"))
+                    return 0
+                fi
+            fi
+        fi
+
+        # Default completion
+        COMPREPLY=($(compgen -f -- "$cur"))
+        return 0
+    fi
+}
+
+complete -F _push-to push-to

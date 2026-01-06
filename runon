@@ -1,0 +1,114 @@
+#!/bin/bash
+    : ${RCSID:=$Id: - 0.4.0 2013-12-25 23:43:30 - $}
+    : ${PROGRAM_TITLE:="Push files and run command on remote server"}
+    : ${PROGRAM_SYNTAX:="[OPTIONS] [--] [COMMAND...]"
+                        "(If no command is specified, opens an interactive shell)"}
+
+    cachedir="$HOME/.cache/runon"
+    HISTORY_FILE="$cachedir/history"
+
+    opt_host=
+    opt_port=
+    opt_user=
+    opt_password=
+    opt_identity=
+    opt_dir=.
+
+    . shlib-import cliboot
+    option -h --host =HOST        "Remote host (default: last used or example.com)"
+    option -p --port =PORT        "SSH port (default: last used or 22)"
+    option -u --user =USER        "Remote user (default: last used or qe2)"
+    option -P --password =PASS    "SSH password (for rsync/sshpass)"
+    option -i --identity =FILE    "SSH identity file"
+    option -d --dir =DIR          "Remote dir (default: last used or .)"
+    option -X --no-x11            "Disable X11 forwarding"
+    option -q --quiet
+    option -v --verbose
+    option    --help
+    option    --version
+
+    no_x11=
+
+function setopt() {
+    case "$1" in
+        -p|--port)
+            opt_port="$2";;
+        -u|--user)
+            opt_user="$2";;
+        -h|--host)
+            opt_host="$2";;
+        -P|--password)
+            opt_password="$2";;
+        -d|--dir)
+            opt_dir="$2";;
+        -i|--identity)
+            opt_identity="$2";;
+        -X|--no-x11)
+            no_x11=1;;
+        --help)
+            help $1; exit;;
+        -q|--quiet)
+            LOGLEVEL=$((LOGLEVEL - 1));;
+        -v|--verbose)
+            LOGLEVEL=$((LOGLEVEL + 1));;
+        --version)
+            show_version; exit;;
+        *)
+            quit "invalid option: $1";;
+    esac
+}
+
+function main() {
+    # Load last used values from history file
+    # Format: timestamp:host:port:user:dir:exitvalue:cmdline
+    if [ -f "$HISTORY_FILE" ]; then
+        IFS=: read _timestamp _host _port _user _dir _exit _cmdline \
+            < <(tail -n1 "$HISTORY_FILE" 2>/dev/null)
+        [ -z "$opt_host" ] && opt_host="$_host"
+        [ -z "$opt_port" ] && opt_port="$_port"
+        [ -z "$opt_user" ] && opt_user="$_user"
+        [ -z "$opt_dir" ]  && opt_dir="$_dir"
+    fi
+
+    # Build push-to arguments
+    opts=()
+    [ -n "$opt_host" ] && opts+=(-h "$opt_host")
+    [ -n "$opt_port" ] && opts+=(-p "$opt_port")
+    [ -n "$opt_user" ] && opts+=(-u "$opt_user")
+    [ -n "$opt_password" ] && opts+=(-P "$opt_password")
+    [ -n "$opt_identity" ] && opts+=(-i "$opt_identity")
+    [ -n "$opt_dir" ] && opts+=(-d "$opt_dir")
+
+    push-to "${opts[@]}"
+
+    # Build ssh options
+    sshopts=()
+    if [ "$no_x11" != 1 ]; then
+        sshopts+=(-X)
+    fi
+    if [ -n "$opt_port" ]; then
+        sshopts+=(-p "$opt_port")
+    fi
+    if [ -n "$opt_identity" ]; then
+        sshopts+=(-i "$opt_identity")
+    fi
+
+    # Get timestamp
+    timestamp=$(date +%s)
+
+    # Execute ssh command and capture exit value
+    if [ -n "$opt_password" ]; then
+        sshpass -p "$opt_password" ssh "${sshopts[@]}" "$opt_user@$opt_host" "$opt_dir/scripts/run-cmd" "$@"
+    else
+        ssh "${sshopts[@]}" "$opt_user@$opt_host" "$opt_dir/scripts/run-cmd" "$@"
+    fi
+    exitvalue=$?
+
+    # Append to history file
+    mkdir -p "$cachedir"
+    echo "$timestamp:$opt_host:$opt_port:$opt_user:$opt_dir:$exitvalue:$*" >> "$HISTORY_FILE"
+
+    return $exitvalue
+}
+
+boot "$@"

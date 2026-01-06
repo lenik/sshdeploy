@@ -145,7 +145,7 @@ Potential improvements:
 
 ## Author
 
-Lenik <deployweb@bodz.net>
+Lenik <sshdeploy@bodz.net>
 
 Copyright (C) 2025 Lenik
 

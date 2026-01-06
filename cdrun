@@ -1,0 +1,146 @@
+#!/bin/bash
+    : ${RCSID:=$Id: cdrun 1.0.0 2025-01-01 00:00:00 - $}
+    : ${PROGRAM_TITLE:="Change directory and run command"}
+    : ${PROGRAM_SYNTAX:="[OPTIONS] DIR? cmd args..."}
+
+    . shlib-import cliboot
+    option -C --chdir =DIR       "Enter to DIR before execute cmdline"
+    option -a --ancestor =FILE   "Ancestor directory to search for FILE"
+    option -d --descendant =DIR  "Descendant directory to search for FILE"
+    option    --sudo             "Use sudo to execute"
+    option -P --password =PASS   "Specify sudo password, implied --sudo"
+    option -v --verbose          "Verbose output"
+    option -q --quiet            "Quiet output"
+    option -h --help
+    option    --version
+
+    opt_chdir=
+    opt_sudo=
+    opt_password=
+    opt_dry_run=
+    opt_exec=1
+
+function setopt() {
+    case "$1" in
+        -C|--chdir)
+            opt_chdir="$2";;
+        -a|--ancestor)
+            opt_ancestor="$2";;
+        -d|--descendant)
+            opt_descendant="$2";;
+        --sudo)
+            opt_sudo=1;;
+        -P|--password)
+            opt_password="$2"
+            opt_sudo=1  # Password implies sudo
+            ;;
+        -n|--dry-run)
+            opt_dry_run=1;;
+        -s|--no-exec)
+            opt_exec=0;;
+        -v|--verbose)
+            LOGLEVEL=$((LOGLEVEL + 1));;
+        -q|--quiet)
+            LOGLEVEL=$((LOGLEVEL - 1));;
+        -h|--help)
+            help $1; exit;;
+        --version)
+            show_version; exit;;
+        *)
+            quit "invalid option: $1";;
+    esac
+}
+
+function find_ancestor() {
+    local file="$1"
+    local dir="$2"
+    if [ -z "$dir" ]; then
+        dir="$PWD"
+    fi
+    local current="$dir"
+    while [ "$current" != "/" ]; do
+        if [ -e "$current/$file" ]; then
+            echo "$current"
+            return 0
+        fi
+        current=${current%/*}
+    done
+    return 1
+}
+
+function find_descendant() {
+    local file="$1"
+    local dir="$2"
+    if [ -z "$dir" ]; then
+        dir="$PWD"
+    fi
+    local result
+    if result=$(find "$dir" -name "$file" -print -quit); then
+        echo "${result%/*}"
+        return 0
+    fi
+    return 1
+}
+
+function main() {
+    # Determine directory to chdir to
+    local chdir=
+
+    if [ -n "$opt_ancestor" ]; then
+        chdir=$(find_ancestor "$opt_ancestor") || quit "Ancestor file not found: $opt_ancestor"
+    fi
+
+    if [ -n "$opt_descendant" ] && [ -z "$chdir" ]; then
+        chdir=$(find_descendant "$opt_descendant") || quit "Descendant file not found: $opt_descendant"
+    fi
+
+    if [ -n "$opt_chdir" ]; then
+        # -C was specified, use it
+        chdir="$opt_chdir"
+    fi
+
+    if [ -z "$chdir" ]; then
+        # first arg is the directory
+        chdir="$1"
+        shift
+        if [ $# -eq 0 ]; then
+            quit "Command not specified"
+        fi
+    fi
+    
+    # Change directory
+    if [ -n "$chdir" ]; then
+        if [ ! -d "$chdir" ]; then
+            quit "Directory not found: $chdir"
+        fi
+        _log2 "Changing to directory: $chdir"
+        cd "$chdir" || quit "Cannot change to directory: $chdir"
+    else
+        _log2 "No directory specified, using current directory: $PWD"
+    fi
+    
+    if [ $# -eq 0 ]; then
+        quit "Command not specified"
+    fi
+    _log2 "Executing command: $@"
+    if [ "$opt_sudo" = "1" ]; then
+        if [ -n "$opt_password" ]; then
+            # Use sudo with password via stdin
+            _log3 "Using sudo with password"
+            echo "$opt_password" | sudo -S "$@"
+        else
+            # Use sudo without password (will prompt if needed)
+            _log3 "Using sudo without password"
+            sudo "$@"
+        fi
+    else
+        # Execute without sudo
+        if [ "$opt_exec" = "1" ]; then
+            exec "$@"
+        else
+            "$@"
+        fi
+    fi
+}
+
+boot "$@"

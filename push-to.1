@@ -1,0 +1,106 @@
+.TH PUSH-TO 1 "2025-01-01" "push-to 0.4.0" "User Commands"
+.SH NAME
+push-to \- push project files to remote server
+.SH SYNOPSIS
+.B push-to
+[\fIOPTIONS\fR] [\fIREMOTE\fR]
+.br
+REMOTE can be specified as user@host[:dir] or via -u/-h/-d options.
+.SH DESCRIPTION
+\fBpush-to\fR is a file synchronization utility that pushes project files to a
+remote server using rsync over SSH. It automatically excludes files based on
+common ignore files (.gitignore, .hgignore, .svnignore, etc.) and is primarily
+used by \fBdeployweb\fR and \fBrunon\fR utilities.
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-host\fR \fIHOST\fR
+Remote host. Required if REMOTE is not specified.
+.TP
+\fB\-p\fR, \fB\-\-port\fR \fIPORT\fR
+SSH port (default: 22).
+.TP
+\fB\-u\fR, \fB\-\-user\fR \fIUSER\fR
+Remote user. If not specified, uses the current user.
+.TP
+\fB\-P\fR, \fB\-\-password\fR \fIPASS\fR
+SSH password (requires sshpass to be installed).
+.TP
+\fB\-i\fR, \fB\-\-identity\fR \fIFILE\fR
+SSH identity file (private key).
+.TP
+\fB\-d\fR, \fB\-\-dir\fR \fIDIR\fR
+Remote directory (default: current directory).
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Reduce verbosity.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Increase verbosity.
+.TP
+\fB\-\-help\fR
+Display help message and exit.
+.TP
+\fB\-\-version\fR
+Display version information and exit.
+.SH REMOTE SPECIFICATION
+The remote destination can be specified in two ways:
+.IP 1. 4
+As command line options: \fB\-h host \-u user \-d dir\fR
+.IP 2. 4
+As a single REMOTE argument in the format: [\fIuser\fR@]\fIhost\fR[:\fIdir\fR]
+.PP
+Examples:
+.IP \(bu 4
+\fBpush-to -h example.com\fR
+.IP \(bu 4
+\fBpush-to user@example.com:/var/www\fR
+.IP \(bu 4
+\fBpush-to example.com:~/public_html\fR
+.SH IGNORE FILES
+\fBpush-to\fR automatically excludes files based on the following ignore files
+if they exist in the project root:
+.IP \(bu 4
+.gitignore
+.IP \(bu 4
+.hgignore
+.IP \(bu 4
+.svnignore
+.IP \(bu 4
+.cvsignore
+.IP \(bu 4
+.darcsignore
+.IP \(bu 4
+.ignore
+.IP \(bu 4
+.rsyncignore
+.IP \(bu 4
+.pushignore
+.SH EXAMPLES
+.TP
+Push to remote host using options:
+.B push-to -h example.com -u deploy -d /var/www
+.TP
+Push to remote host using REMOTE argument:
+.B push-to deploy@example.com:/var/www
+.TP
+Push with SSH key and custom port:
+.B push-to -h example.com -p 2222 -i ~/.ssh/deploy_key -d /var/www
+.TP
+Push with password authentication:
+.B push-to -P mypassword user@example.com:~/public_html
+.SH SEE ALSO
+.BR rsync (1),
+.BR ssh (1),
+.BR sshpass (1),
+.BR deployweb (1),
+.BR runon (1)
+.SH AUTHOR
+Lenik <sshdeploy@bodz.net>
+.SH BUGS
+Report bugs to the project repository.
+.SH COPYRIGHT
+Copyright \(co 2025 Lenik <sshdeploy@bodz.net>
+.br
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+

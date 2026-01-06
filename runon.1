@@ -1,0 +1,108 @@
+.TH RUNON 1 "2025-01-01" "runon 0.4.0" "User Commands"
+.SH NAME
+runon \- push files and run command on remote server
+.SH SYNOPSIS
+.B runon
+[\fIOPTIONS\fR] [\fB\-\-\fR] [\fICOMMAND\fR...]
+.br
+If no command is specified, opens an interactive shell.
+.SH DESCRIPTION
+\fBrunon\fR is a utility for pushing files to a remote server and executing commands
+on it. It uses \fBpush-to\fR to sync files and then connects via SSH to run commands
+or open an interactive shell. The tool remembers the last used connection parameters
+(host, port, user, directory) from a history file for convenience.
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-host\fR \fIHOST\fR
+Remote host (default: last used or example.com).
+.TP
+\fB\-p\fR, \fB\-\-port\fR \fIPORT\fR
+SSH port (default: last used or 22).
+.TP
+\fB\-u\fR, \fB\-\-user\fR \fIUSER\fR
+Remote user (default: last used or qe2).
+.TP
+\fB\-P\fR, \fB\-\-password\fR \fIPASS\fR
+SSH password (for rsync/sshpass).
+.TP
+\fB\-i\fR, \fB\-\-identity\fR \fIFILE\fR
+SSH identity file.
+.TP
+\fB\-d\fR, \fB\-\-dir\fR \fIDIR\fR
+Remote directory (default: last used or .).
+.TP
+\fB\-X\fR, \fB\-\-no-x11\fR
+Disable X11 forwarding.
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Reduce verbosity.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Increase verbosity.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display help message and exit.
+.TP
+\fB\-\-version\fR
+Display version information and exit.
+.SH HISTORY
+\fBrunon\fR maintains a history file at \fI~/.cache/runon/history\fR that stores
+information about the last connection. The format is:
+.PP
+.RS
+timestamp:host:port:user:dir:exitvalue:cmdline
+.RE
+.PP
+When options are not specified, \fBrunon\fR uses the values from the most recent
+history entry. This allows you to quickly reconnect to the same server without
+retyping connection parameters.
+.SH WORKFLOW
+The execution process follows these steps:
+.IP 1. 4
+Load last used connection parameters from history file (if available)
+.IP 2. 4
+Push files to remote server using \fBpush-to\fR with the specified options
+.IP 3. 4
+Connect via SSH and execute the command using \fI<dir>/scripts/run-cmd\fR
+.IP 4. 4
+If no command is specified, opens an interactive shell
+.IP 5. 4
+Record the execution in the history file
+.SH EXAMPLES
+.TP
+Run a command on the default server:
+.B runon ls -la
+.TP
+Connect to a specific host and run a command:
+.B runon -h myserver.com -u deploy "cd /var/www && ls"
+.TP
+Open an interactive shell on a remote server:
+.B runon -h myserver.com -u deploy -d /var/www
+.TP
+Run a command with custom port and identity file:
+.B runon -h myserver.com -p 2222 -i ~/.ssh/custom_key "systemctl status nginx"
+.TP
+Push files and run command with password authentication:
+.B runon -h myserver.com -P mypassword "deploy.sh"
+.TP
+Disable X11 forwarding:
+.B runon -X -h myserver.com "xterm"
+.SH FILES
+.TP
+\fI~/.cache/runon/history\fR
+History file storing last used connection parameters and command executions.
+.SH SEE ALSO
+.BR push-to (1),
+.BR ssh (1),
+.BR rsync (1),
+.BR sshpass (1)
+.SH AUTHOR
+Lenik <sshdeploy@bodz.net>
+.SH BUGS
+Report bugs to the project repository.
+.SH COPYRIGHT
+Copyright \(co 2025 Lenik <sshdeploy@bodz.net>
+.br
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+

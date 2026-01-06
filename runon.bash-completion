@@ -1,0 +1,78 @@
+# bash completion for runon
+# To install, copy this file to /etc/bash_completion.d/runon
+# or source it in your ~/.bashrc
+
+_runon() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    
+    opts="-h --host -p --port -u --user -P --password -i --identity -d --dir -X --no-x11 -q --quiet -v --verbose --help --version"
+    
+    case "${prev}" in
+        -h|--host)
+            # Suggest common hostnames from history if available
+            local history_file="$HOME/.cache/runon/history"
+            if [ -f "$history_file" ]; then
+                local hosts=$(awk -F: '{print $2}' "$history_file" 2>/dev/null | sort -u)
+                if [ -n "$hosts" ]; then
+                    COMPREPLY=($(compgen -W "$hosts" -- "$cur"))
+                fi
+            fi
+            return 0
+            ;;
+        -p|--port)
+            # Suggest common SSH ports
+            COMPREPLY=($(compgen -W "22 2222 2200 22000" -- "$cur"))
+            return 0
+            ;;
+        -u|--user)
+            # Suggest common usernames from history if available
+            local history_file="$HOME/.cache/runon/history"
+            if [ -f "$history_file" ]; then
+                local users=$(awk -F: '{print $4}' "$history_file" 2>/dev/null | sort -u)
+                if [ -n "$users" ]; then
+                    COMPREPLY=($(compgen -W "$users" -- "$cur"))
+                fi
+            fi
+            return 0
+            ;;
+        -P|--password)
+            # No completion for password
+            return 0
+            ;;
+        -i|--identity)
+            # Complete SSH key files
+            COMPREPLY=($(compgen -f -X '!*.pem' -- "$cur"))
+            COMPREPLY+=($(compgen -f -X '!*id_*' -- "$cur"))
+            return 0
+            ;;
+        -d|--dir)
+            # Complete directories
+            COMPREPLY=($(compgen -d -- "$cur"))
+            return 0
+            ;;
+    esac
+    
+    # Complete options or commands
+    if [[ ${cur} == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+        return 0
+    else
+        # Complete commands/files after -- or as arguments
+        if [[ "${COMP_WORDS[@]}" =~ -- ]]; then
+            # After --, complete commands
+            COMPREPLY=($(compgen -c -- "$cur"))
+            return 0
+        else
+            # Before --, still show options
+            COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+            COMPREPLY+=($(compgen -c -- "$cur"))
+            return 0
+        fi
+    fi
+}
+
+complete -F _runon runon
+

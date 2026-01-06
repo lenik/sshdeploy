@@ -1,16 +1,25 @@
-Source: deployweb
+Source: sshdeploy
 Section: utils
 Priority: optional
-Maintainer: Lenik <deployweb@bodz.net>
+Maintainer: Lenik <sshdeploy@bodz.net>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.0
-Homepage: https://github.com/example/deployweb
+Homepage: https://github.com/example/sshdeploy
+License: GPL
 
-Package: deployweb
+Package: sshdeploy
 Architecture: all
 Depends: ${misc:Depends}, bash-shlib, pnpm, rsync, openssh-client, apache2
-Description: Website deployment utility
- deployweb is a utility for deploying websites to remote servers.
- It finds the project root, builds using pnpm, syncs files via rsync,
- and configures Apache virtual hosts.
+Description: Website deployment and remote execution utilities
+ sshdeploy provides utilities for deploying websites to remote servers
+ and executing commands remotely.
+ .
+ This package includes:
+  * cdrun: Change directory and run commands, with support for finding
+    directories by searching for ancestor or descendant files.
+  * deployweb: Website deployment utility that finds the project root,
+    builds using pnpm, syncs files via rsync, and configures Apache
+    virtual hosts.
+  * push-to: File synchronization utility used by deployweb and runon.
+  * runon: Push files and run commands on remote servers via SSH.
 

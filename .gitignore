@@ -7,8 +7,10 @@
 *.tar.xz
 
 # Debian build directories
-debian/deployweb/
-debian/.debhelper/
+debian/sshdeploy
+debian/.debhelper
+debian/*-stamp
+debian/*.substvars
 debian/files
 debian/substvars
 

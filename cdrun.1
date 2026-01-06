@@ -1,0 +1,93 @@
+.TH CDRUN 1 "2025-01-01" "cdrun 1.0.0" "User Commands"
+.SH NAME
+cdrun \- change directory and run command
+.SH SYNOPSIS
+.B cdrun
+[\fIOPTIONS\fR] [\fIDIR\fR] \fICOMMAND\fR [\fIARGS\fR...]
+.br
+.SH DESCRIPTION
+\fBcdrun\fR is a utility for changing to a directory and executing a command.
+The directory can be specified explicitly with \fB\-C\fR, found by searching for
+an ancestor file with \fB\-a\fR, found by searching for a descendant file with
+\fB\-d\fR, or provided as the first positional argument if no \fB\-C\fR option
+is specified.
+.SH OPTIONS
+.TP
+\fB\-C\fR, \fB\-\-chdir\fR \fIDIR\fR
+Change to \fIDIR\fR before executing the command.
+.TP
+\fB\-a\fR, \fB\-\-ancestor\fR \fIFILE\fR
+Search upward from the current directory (or from a specified directory) to
+find a directory containing \fIFILE\fR, then change to that directory.
+.TP
+\fB\-d\fR, \fB\-\-descendant\fR \fIFILE\fR
+Search downward from the current directory (or from a specified directory) to
+find a directory containing \fIFILE\fR, then change to that directory. This
+option is only used if \fB\-a\fR does not find a match.
+.TP
+\fB\-\-sudo\fR
+Execute the command using \fBsudo\fR.
+.TP
+\fB\-P\fR, \fB\-\-password\fR \fIPASS\fR
+Specify sudo password. This option implies \fB\-\-sudo\fR.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Increase verbosity.
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Reduce verbosity.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display help message and exit.
+.TP
+\fB\-\-version\fR
+Display version information and exit.
+.SH DIRECTORY RESOLUTION
+The directory to change to is determined in the following order:
+.IP 1. 4
+If \fB\-a\fR is specified, search for the ancestor file and use that directory.
+.IP 2. 4
+If \fB\-d\fR is specified and no ancestor was found, search for the descendant
+file and use that directory.
+.IP 3. 4
+If \fB\-C\fR is specified, use the explicitly provided directory.
+.IP 4. 4
+If none of the above, use the first positional argument as the directory.
+.PP
+If no directory is determined by any of these methods, the command is executed
+in the current directory.
+.SH EXAMPLES
+.TP
+Change to a directory and run a command:
+.B cdrun /var/www ls -la
+.TP
+Use explicit directory option:
+.B cdrun -C /var/www ls -la
+.TP
+Find directory containing package.json and run command:
+.B cdrun -a package.json npm install
+.TP
+Find directory containing Makefile in subdirectories:
+.B cdrun -d Makefile make
+.TP
+Run command with sudo:
+.B cdrun --sudo /etc systemctl status nginx
+.TP
+Run command with sudo and password:
+.B cdrun -P mypassword /usr/local/bin ./install.sh
+.TP
+Combine ancestor search with explicit directory:
+.B cdrun -a .git -C /tmp git status
+.SH SEE ALSO
+.BR sudo (1),
+.BR find (1)
+.SH AUTHOR
+Lenik <sshdeploy@bodz.net>
+.SH BUGS
+Report bugs to the project repository.
+.SH COPYRIGHT
+Copyright \(co 2025 Lenik <sshdeploy@bodz.net>
+.br
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+

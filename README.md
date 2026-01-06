@@ -1,6 +1,15 @@
-# deployweb
+# sshdeploy
 
-Website deployment utility for deploying projects to remote servers with Apache configuration.
+A collection of utilities for deploying websites and executing commands on remote servers.
+
+## Utilities
+
+This package includes several utilities:
+
+- **deployweb**: Website deployment utility for deploying projects to remote servers with Apache configuration
+- **runon**: Push files and run commands on remote servers via SSH
+- **cdrun**: Change directory and run commands, with support for finding directories by searching for files
+- **push-to**: File synchronization utility used by deployweb and runon
 
 ## Features
 
@@ -33,7 +42,7 @@ This creates symlinks in `/usr` pointing to files in the project directory. Requ
 
 ```bash
 dpkg-buildpackage -b
-sudo dpkg -i ../deployweb_*.deb
+sudo dpkg -i ../sshdeploy_*.deb
 ```
 
 ## Usage
@@ -121,14 +130,80 @@ visual_host_key: yes
 5. Generates Apache virtual host configuration
 6. Enables site and reloads Apache
 
+## runon
+
+Remote command execution utility that pushes files and runs commands on remote servers.
+
+### Usage
+
+```bash
+runon [OPTIONS] [COMMAND...]
+```
+
+### Options
+
+- `-h, --host HOST` - Remote host
+- `-p, --port PORT` - SSH port (default: 22)
+- `-u, --user USER` - Remote user
+- `-P, --password PASS` - SSH password
+- `-i, --identity FILE` - SSH identity file
+- `-d, --dir DIR` - Remote directory
+- `-X, --no-x11` - Disable X11 forwarding
+- `-q, --quiet` - Reduce verbosity
+- `-v, --verbose` - Increase verbosity
+- `-h, --help` - Show help
+- `--version` - Show version
+
+### Examples
+
+```bash
+runon -h myserver.com -u deploy ls -la
+runon -h myserver.com -P mypassword "systemctl status nginx"
+```
+
+## cdrun
+
+Change directory and run command utility with smart directory finding.
+
+### Usage
+
+```bash
+cdrun [OPTIONS] [DIR] COMMAND [ARGS...]
+```
+
+### Options
+
+- `-C, --chdir DIR` - Change to specified directory
+- `-a, --ancestor FILE` - Find ancestor directory containing FILE
+- `-d, --descendant FILE` - Find descendant directory containing FILE
+- `--sudo` - Execute with sudo
+- `-P, --password PASS` - Sudo password
+- `-v, --verbose` - Verbose output
+- `-q, --quiet` - Quiet output
+- `-h, --help` - Show help
+- `--version` - Show version
+
+### Examples
+
+```bash
+cdrun /var/www ls -la
+cdrun -a package.json npm install
+cdrun -d Makefile make
+cdrun --sudo /etc systemctl status nginx
+```
+
+## push-to
+
+File synchronization utility used internally by deployweb and runon. Syncs local files to remote servers via rsync over SSH.
+
 ## Requirements
 
 - bash
-- pnpm
+- pnpm (for deployweb)
 - rsync
 - openssh-client
-- apache2 (on remote server)
-- sudo access on remote server
+- apache2 (on remote server for deployweb)
+- sudo access (on remote server for deployweb)
 
 ## Bash Completion
 
@@ -150,7 +225,7 @@ GPL - GNU General Public License
 
 ## Author
 
-Lenik <deployweb@bodz.net>
+Lenik <sshdeploy@bodz.net>
 
 Copyright (C) 2025 Lenik
 

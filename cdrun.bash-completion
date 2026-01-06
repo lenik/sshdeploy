@@ -1,0 +1,83 @@
+# bash completion for cdrun
+# To install, copy this file to /etc/bash_completion.d/cdrun
+# or source it in your ~/.bashrc
+
+_cdrun() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    
+    opts="-C --chdir -a --ancestor -d --descendant --sudo -P --password -v --verbose -q --quiet -h --help --version"
+    
+    case "${prev}" in
+        -C|--chdir)
+            # Complete directories
+            COMPREPLY=($(compgen -d -- "$cur"))
+            return 0
+            ;;
+        -a|--ancestor)
+            # Complete files
+            COMPREPLY=($(compgen -f -- "$cur"))
+            return 0
+            ;;
+        -d|--descendant)
+            # Complete files
+            COMPREPLY=($(compgen -f -- "$cur"))
+            return 0
+            ;;
+        -P|--password)
+            # No completion for password
+            return 0
+            ;;
+    esac
+    
+    # Check if -C has been used
+    local has_chdir=0
+    local has_dir_arg=0
+    local i
+    for i in "${COMP_WORDS[@]}"; do
+        if [[ "$i" == "-C" ]] || [[ "$i" == "--chdir" ]]; then
+            has_chdir=1
+            break
+        fi
+    done
+    
+    # Check if we've already passed a directory argument (first non-option arg)
+    local found_nonopt=0
+    for i in "${COMP_WORDS[@]:1}"; do
+        if [[ "$i" != -* ]] && [[ "$i" != "-C" ]] && [[ "$i" != "--chdir" ]] && \
+           [[ "$i" != "-a" ]] && [[ "$i" != "--ancestor" ]] && \
+           [[ "$i" != "-d" ]] && [[ "$i" != "--descendant" ]] && \
+           [[ "$i" != "-P" ]] && [[ "$i" != "--password" ]] && \
+           [[ "$i" != "--sudo" ]] && [[ "$i" != "-v" ]] && [[ "$i" != "--verbose" ]] && \
+           [[ "$i" != "-q" ]] && [[ "$i" != "--quiet" ]] && [[ "$i" != "-h" ]] && \
+           [[ "$i" != "--help" ]] && [[ "$i" != "--version" ]]; then
+            if [ $found_nonopt -eq 0 ]; then
+                found_nonopt=1
+                has_dir_arg=1
+            fi
+        fi
+    done
+    
+    # Complete options or directories/commands
+    if [[ ${cur} == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+        return 0
+    else
+        # If -C was not used and we haven't seen a directory arg yet, complete directories
+        if [ $has_chdir -eq 0 ] && [ $has_dir_arg -eq 0 ]; then
+            COMPREPLY=($(compgen -d -- "$cur"))
+            COMPREPLY+=($(compgen -c -- "$cur"))
+            return 0
+        else
+            # Otherwise complete commands
+            COMPREPLY=($(compgen -c -- "$cur"))
+            COMPREPLY+=($(compgen -f -- "$cur"))
+            return 0
+        fi
+    fi
+}
+
+complete -F _cdrun cdrun
+

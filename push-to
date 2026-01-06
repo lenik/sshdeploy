@@ -1,0 +1,169 @@
+#!/bin/bash
+    : ${RCSID:=$Id: - 0.4.0 2013-12-25 23:43:30 - $}
+    : ${PROGRAM_TITLE:="Push project files to remote server"}
+    : ${PROGRAM_SYNTAX:="[OPTIONS] [--] [REMOTE]"
+                        "(REMOTE can be specified as user@host[:dir] or via -u/-h/-d options)"}
+
+    . shlib-import cliboot
+    option -h --host =HOST      "Remote host"
+    option -p --port =PORT      "SSH port (default: 22)"
+    option -u --user =USER      "Remote user"
+    option -P --password =PASS  "SSH password (for rsync/sshpass)"
+    option -i --identity =FILE  "SSH identity file"
+    option -C --chdir =DIR      "Change local directory to DIR before rsync"
+    option -D --dir =DIR        "Remote directory"
+    option    --delete          "Delete files on remote that are not on local"
+    option -q --quiet
+    option -v --verbose
+    option    --help
+    option    --version
+
+    opt_host=
+    opt_port=
+    opt_user=
+    opt_password=
+    opt_identity=
+    opt_chdir=
+    opt_dir=.
+    opt_delete=0
+
+function setopt() {
+    case "$1" in
+        -h|--host)
+            opt_host="$2";;
+        -p|--port)
+            opt_port="$2";;
+        -u|--user)
+            opt_user="$2";;
+        -P|--password)
+            opt_password="$2";;
+        -i|--identity)
+            opt_identity="$2";;
+        -C|--chdir)
+            opt_chdir="$2";;
+        -D|--dir)
+            opt_dir="$2";;
+        --delete)
+            opt_delete=1;;
+        --help)
+            help $1; exit;;
+        -q|--quiet)
+            LOGLEVEL=$((LOGLEVEL - 1));;
+        -v|--verbose)
+            LOGLEVEL=$((LOGLEVEL + 1));;
+        --version)
+            show_version; exit;;
+        *)
+            quit "invalid option: $1";;
+    esac
+}
+
+function main() {
+    # Parse REMOTE argument if provided
+    if [ $# -ge 1 ]; then
+        remote="$1"
+        # Parse [user@host:][dir] format
+        local user_host="${remote%%:*}"
+        if [ "$user_host" != "$remote" ]; then
+            opt_user="${user_host%@*}"
+            opt_host="${user_host##*@}"
+            if [ "$opt_user" == "$opt_host" ]; then
+                opt_user=
+            fi
+        fi
+        opt_dir="${remote##*:}"
+    fi
+
+    # Build remote string
+    if [ -n "$opt_host" ]; then
+        if [ -n "$opt_user" ]; then
+            remote="$opt_user@$opt_host:"
+        else
+            remote="$opt_host:"
+        fi
+    else
+        remote=
+    fi
+
+    if [ -n "$opt_dir" ]; then
+        remote="$remote$opt_dir"
+    elif [ -z "$opt_host" ]; then
+        quit "directory or host must be specified."
+    fi
+
+    _log2 "Remote: $remote"
+    _log3 "User: $opt_user"
+    _log3 "Host: $opt_host"
+    _log3 "Port: $opt_port"
+    _log3 "Identity: $opt_identity"
+    _log2 "Dir: $opt_dir"
+    _log3 "Chdir: $opt_chdir"
+    _log3 "Delete: $opt_delete"
+
+    if [ -n "$opt_chdir" ]; then
+        cd "$opt_chdir" || quit "error chdir to $opt_chdir"
+    fi
+
+    # Build rsync options
+    # -a/--archive: archive mode (equivalent to -rlptgoD)
+    # -c/--checksum: use checksum for file comparison
+    # -m/--prune-empty-dirs: prune empty directories on remote
+    # -z/--compress: compress files
+    # -L/--links: copy symlinks as symlinks
+    # -v/--verbose: verbose output
+    # -f/--filter: filter files
+    rsync_opts=(
+            --archive \
+            --prune-empty-dirs
+            --compress \
+            --links)
+    if [ $LOGLEVEL -ge 2 ]; then
+        rsync_opts+=(--verbose)
+    fi
+    if [ "$opt_delete" == 1 ]; then
+        rsync_opts+=(--delete)
+    fi
+    
+    # Build ssh command for rsync -e option
+    ssh_cmd="ssh"
+    if [ -n "$opt_port" ] || [ -n "$opt_identity" ]; then
+        if [ -n "$opt_port" ]; then
+            ssh_cmd="$ssh_cmd -p $opt_port"
+        fi
+        if [ -n "$opt_identity" ]; then
+            # Quote identity file path to handle spaces
+            ssh_cmd="$ssh_cmd -i \"$opt_identity\""
+        fi
+        rsync_opts+=(-e "$ssh_cmd")
+    fi
+    
+    [ -f .gitignore ]   && rsync_opts+=(-f '- .gitignore')
+    [ -f .hgignore ]    && rsync_opts+=(-f '- .hgignore')
+    [ -f .svnignore ]   && rsync_opts+=(-f '- .svnignore')
+    [ -f .cvsignore ]   && rsync_opts+=(-f '- .cvsignore')
+    [ -f .darcsignore ] && rsync_opts+=(-f '- .darcsignore')
+    [ -f .ignore ]      && rsync_opts+=(-f '- .ignore')
+    [ -f .rsyncignore ] && rsync_opts+=(-f '- .rsyncignore')
+    [ -f .pushignore ]  && rsync_opts+=(-f '- .pushignore')
+
+    # Build rsync command
+    rsync_cmd=(rsync "${rsync_opts[@]}")
+    
+    # Add password handling if needed
+    if [ -n "$opt_password" ]; then
+        if command -v sshpass >/dev/null 2>&1; then
+            rsync_cmd=(sshpass -p "$opt_password" "${rsync_cmd[@]}")
+        else
+            _log1 "Warning: sshpass not found, password option ignored"
+        fi
+    fi
+    
+    run "${rsync_cmd[@]}" . "$remote"
+}
+
+function run() {
+    _log1 "Running: $*"
+    "$@"
+}
+
+boot "$@"

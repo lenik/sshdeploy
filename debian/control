@@ -9,7 +9,7 @@ License: GPL
 
 Package: sshdeploy
 Architecture: all
-Depends: ${misc:Depends}, bash-shlib, pnpm, rsync, openssh-client, apache2
+Depends: ${misc:Depends}, bash-shlib, rsync, openssh-client, apache2
 Description: Website deployment and remote execution utilities
  sshdeploy provides utilities for deploying websites to remote servers
  and executing commands remotely.

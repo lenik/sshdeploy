@@ -1,3 +1,9 @@
+sshdeploy (1.0.1) unstable; urgency=medium
+
+  * Removed pnpm dependency.
+
+ -- Lenik (谢继雷) <lenik@bodz.net>  Sun, 01 Mar 2026 00:52:04 +0800
+
 sshdeploy (1.0.0) unstable; urgency=low
 
   * Initial release

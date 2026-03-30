@@ -20,7 +20,7 @@
     option -u --user =USER        "Remote user (default: last used or qe2)"
     option -P --password =PASS    "SSH password (for rsync/sshpass)"
     option -i --identity =FILE    "SSH identity file"
-    option -d --dir =DIR          "Remote dir (default: last used or .)"
+    option -D --dir =DIR          "Remote dir (default: last used or .)"
     option -X --no-x11            "Disable X11 forwarding"
     option -q --quiet
     option -v --verbose
@@ -39,7 +39,7 @@ function setopt() {
             opt_host="$2";;
         -P|--password)
             opt_password="$2";;
-        -d|--dir)
+        -D|--dir)
             opt_dir="$2";;
         -i|--identity)
             opt_identity="$2";;
@@ -77,7 +77,7 @@ function main() {
     [ -n "$opt_user" ] && opts+=(-u "$opt_user")
     [ -n "$opt_password" ] && opts+=(-P "$opt_password")
     [ -n "$opt_identity" ] && opts+=(-i "$opt_identity")
-    [ -n "$opt_dir" ] && opts+=(-d "$opt_dir")
+    [ -n "$opt_dir" ] && opts+=(-D "$opt_dir")
 
     push-to "${opts[@]}"
 
@@ -98,9 +98,9 @@ function main() {
 
     # Execute ssh command and capture exit value
     if [ -n "$opt_password" ]; then
-        sshpass -p "$opt_password" ssh "${sshopts[@]}" "$opt_user@$opt_host" "$opt_dir/scripts/run-cmd" "$@"
+        sshpass -p "$opt_password" ssh "${sshopts[@]}" "$opt_user@$opt_host" cdrun -C "$opt_dir" $(quote_join "$@")
     else
-        ssh "${sshopts[@]}" "$opt_user@$opt_host" "$opt_dir/scripts/run-cmd" "$@"
+        ssh "${sshopts[@]}" "$opt_user@$opt_host" cdrun -C "$opt_dir" $(quote_join "$@")
     fi
     exitvalue=$?
 
@@ -109,6 +109,19 @@ function main() {
     echo "$timestamp:$opt_host:$opt_port:$opt_user:$opt_dir:$exitvalue:$*" >> "$HISTORY_FILE"
 
     return $exitvalue
+}
+
+function quote_join() {
+    local arg
+    local cmdline=
+    for arg in "$@"; do
+        local quoted=${arg@Q}
+        if [ -n "$cmdline" ]; then
+            cmdline="$cmdline "
+        fi
+        cmdline="$cmdline$quoted"
+    done
+    echo "$cmdline"
 }
 
 boot "$@"

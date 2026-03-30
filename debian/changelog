@@ -1,3 +1,10 @@
+sshdeploy (1.0.2) unstable; urgency=medium
+
+  * runon: switch remote execution to cdrun -C, with robust argument quoting.
+  * runon: change remote dir option short flag from -d to -D.
+
+ -- Lenik (谢继雷) <lenik@bodz.net>  Mon, 30 Mar 2026 19:10:55 +0800
+
 sshdeploy (1.0.1) unstable; urgency=medium
 
   * Removed pnpm dependency.

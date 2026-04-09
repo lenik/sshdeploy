@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure|triggered)
+        if [ -x /usr/bin/echo-LC_SUDO_PW ] || [ -f /usr/bin/echo-LC_SUDO_PW ]; then
+            chmod 0755 /usr/bin/echo-LC_SUDO_PW || true
+        fi
+
+        if [ -f /etc/sudo.conf ]; then
+            if ! awk '
+                BEGIN { found=0 }
+                /^[[:space:]]*Path[[:space:]]+askpass[[:space:]]+/ {
+                    found=1
+                }
+                END { exit(found ? 0 : 1) }
+            ' /etc/sudo.conf; then
+                printf '\n# Added by sshdeploy package\nPath askpass /usr/bin/echo-LC_SUDO_PW\n' >> /etc/sudo.conf
+            fi
+        fi
+        ;;
+esac
+
+exit 0

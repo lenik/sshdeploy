@@ -1,3 +1,12 @@
+sshdeploy (1.0.4) unstable; urgency=medium
+
+  * Add deployweb askpass helper script echo-LC_SUDO_PW.
+  * Package askpass helper via Meson and add Debian postinst integration.
+  * Clarify deployweb sudo/askpass behavior and local-vs-remote setup in
+    README-sudo.md.
+
+ -- Lenik (谢继雷) <lenik@bodz.net>  Thu, 09 Apr 2026 22:01:53 +0800
+
 sshdeploy (1.0.3) unstable; urgency=medium
 
   * deployweb: default PROJECT-DIR to current directory.

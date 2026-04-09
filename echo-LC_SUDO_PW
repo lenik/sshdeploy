@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# You need to config sudo.conf to add:
+# Path askpass /usr/bin/echo-LC_SUDO_PW
+
+printf "%s\n" "$LC_SUDO_PW"

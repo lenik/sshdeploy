@@ -43,6 +43,12 @@ install_data(
   install_mode: 'rwxr-xr-x',
 )
 
+install_data(
+  ['echo-LC_SUDO_PW'],
+  install_dir: bindir,
+  install_mode: 'rwxr-xr-x',
+)
+
 configured_manpages = []
 foreach man_name : ['cdrun.1', 'deployweb.1', 'push-to.1', 'runon.1']
   configured_manpages += configure_file(
@@ -93,7 +99,8 @@ run_target(
     + 'sudo ln -vsnf "' + source_root + '/push-to.bash-completion" /usr/share/bash-completion/completions/push-to; '
     + 'sudo ln -vsnf "' + source_root + '/runon" /usr/bin/runon; '
     + 'sudo ln -vsnf "' + source_root + '/runon.1" /usr/share/man/man1/runon.1; '
-    + 'sudo ln -vsnf "' + source_root + '/runon.bash-completion" /usr/share/bash-completion/completions/runon'
+    + 'sudo ln -vsnf "' + source_root + '/runon.bash-completion" /usr/share/bash-completion/completions/runon; '
+    + 'sudo ln -vsnf "' + source_root + '/echo-LC_SUDO_PW" /usr/bin/echo-LC_SUDO_PW'
   ]
 )
 
@@ -113,6 +120,7 @@ run_target(
     + 'sudo rm -vf /usr/share/bash-completion/completions/push-to; '
     + 'sudo rm -vf /usr/bin/runon; '
     + 'sudo rm -vf /usr/share/man/man1/runon.1; '
-    + 'sudo rm -vf /usr/share/bash-completion/completions/runon'
+    + 'sudo rm -vf /usr/share/bash-completion/completions/runon; '
+    + 'sudo rm -vf /usr/bin/echo-LC_SUDO_PW'
   ]
 )

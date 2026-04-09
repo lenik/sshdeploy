@@ -113,6 +113,16 @@ function load_profile() {
         quit "Config file or profile not found: $profile_or_file"
     fi
     
+    # Trim leading/trailing whitespace without touching inner content.
+    function trim_ws() {
+        local s="$1"
+        # trim leading
+        s="${s#"${s%%[![:space:]]*}"}"
+        # trim trailing
+        s="${s%"${s##*[![:space:]]}"}"
+        printf '%s' "$s"
+    }
+
     # Read config file
     while IFS= read -r line || [ -n "$line" ]; do
         # Skip comments and empty lines
@@ -123,8 +133,10 @@ function load_profile() {
         if [[ "$line" =~ ^[[:space:]]*([^:]+):[[:space:]]*(.+)$ ]]; then
             local key="${BASH_REMATCH[1]}"
             local value="${BASH_REMATCH[2]}"
-            key="${key// /}"
-            value="${value// /}"
+            key="$(trim_ws "$key")"
+            value="$(trim_ws "$value")"
+            # Drop CR from CRLF files.
+            value="${value%$'\r'}"
             
             case "$key" in
                 server)
@@ -235,6 +247,14 @@ function build_ssh_cmd() {
     fi
 }
 
+function shell_quote_sq() {
+    # Quote string for safe POSIX shell single-quoted context.
+    # Example: abc'def -> 'abc'\''def'
+    local s="$1"
+    s=${s//\'/\'\\\'\'}
+    printf "'%s'" "$s"
+}
+
 function setup_remote_askpass() {
     local ssh_cmd="$1"
     if [ -n "$sudo_pw" ]; then
@@ -275,6 +295,11 @@ function deploy_files() {
     # Build SSH options for rsync
     local ssh_opts
     ssh_opts=$(build_ssh_opts "$port")
+
+    # Build ssh command and ensure remote directory exists before rsync.
+    local ssh_cmd
+    ssh_cmd=$(build_ssh_cmd "$port" "$host")
+    $ssh_cmd "mkdir -p \"${remote_path}\"" || quit "Failed to create remote directory: $remote_path"
     
     # Build rsync SSH command (without host - host goes in remote path)
     local rsync_ssh_cmd="ssh$ssh_opts"
@@ -408,7 +433,11 @@ function configure_apache() {
     # Build sudo command
     local sudo_cmd
     if [ -n "$askpass_script" ]; then
-        sudo_cmd="LC_SUDO_PW=\"$sudo_pw\" SUDO_ASKPASS=\"$askpass_script\" sudo -A"
+        local quoted_pw
+        local quoted_askpass
+        quoted_pw=$(shell_quote_sq "$sudo_pw")
+        quoted_askpass=$(shell_quote_sq "$askpass_script")
+        sudo_cmd="LC_SUDO_PW=$quoted_pw SUDO_ASKPASS=$quoted_askpass sudo -A"
     else
         sudo_cmd="sudo"
     fi

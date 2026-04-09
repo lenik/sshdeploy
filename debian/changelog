@@ -1,3 +1,13 @@
+sshdeploy (1.0.5) unstable; urgency=medium
+
+  * deployweb: preserve profile values while parsing (trim safely, handle CRLF,
+    and accept quoted values).
+  * deployweb: quote sudo askpass/password environment values safely for remote
+    shell execution.
+  * deployweb: create remote deployment directory before rsync.
+
+ -- Lenik (谢继雷) <lenik@bodz.net>  Thu, 09 Apr 2026 22:27:46 +0800
+
 sshdeploy (1.0.4) unstable; urgency=medium
 
   * Add deployweb askpass helper script echo-LC_SUDO_PW.

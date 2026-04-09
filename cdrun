@@ -1,5 +1,5 @@
 #!/bin/bash
-    : ${RCSID:=$Id: cdrun 1.0.0 2025-01-01 00:00:00 - $}
+    : ${RCSID:=$Id: cdrun @VER_DT@ - $}
     : ${PROGRAM_TITLE:="Change directory and run command"}
     : ${PROGRAM_SYNTAX:="[OPTIONS] DIR? cmd args..."}
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-    : ${RCSID:=$Id: - 0.4.0 2013-12-25 23:43:30 - $}
+    : ${RCSID:=$Id: runon @VER_DT@ - $}
     : ${PROGRAM_TITLE:="Push files and run command on remote server"}
     : ${PROGRAM_SYNTAX:="[OPTIONS] [--] [COMMAND...]"
                         "(If no command is specified, opens an interactive shell)"}

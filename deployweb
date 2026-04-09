@@ -1,5 +1,5 @@
 #!/bin/bash
-: ${RCSID:=$Id: deployweb 1.0.0 2025-01-01 00:00:00 - $}
+: ${RCSID:=$Id: deployweb @VER_DT@ - $}
 : ${PROGRAM_TITLE:="Website deployment utility"}
 : ${PROGRAM_SYNTAX:="[OPTIONS] PROJECT-DIR"}
 
@@ -14,7 +14,7 @@ option -v --verbose
 option -h --help
 option    --version
 
-config=
+opt_config=
 name=
 domain=
 ports=()
@@ -23,7 +23,7 @@ ssl=
 function setopt() {
     case "$1" in
         -c|--config)
-            config="$2";;
+            opt_config="$2";;
         -n|--name)
             name="$2";;
         -d|--domain)
@@ -71,12 +71,19 @@ function find_project_root() {
     return 1
 }
 
-function find_first_profile() {
+function find_profile() {
     local config_dir="$HOME/.config/deployweb"
-    
     if [ ! -d "$config_dir" ]; then
         return 1
     fi
+    
+    local name
+    for name in "$@"; do
+        if [ -f "$config_dir/$name" ]; then
+            echo "$name"
+            return 0
+        fi
+    done
     
     # Find first non-directory file
     local first_file
@@ -440,13 +447,10 @@ function configure_apache() {
 }
 
 function main() {
-    if [ $# -lt 1 ]; then
-        echo "PROJECT-DIR not specified"
-        help
-        exit 1
+    local project_dir=.
+    if [ $# != 0 ]; then
+        project_dir="$1"
     fi
-    
-    local project_dir="$1"
     
     # Resolve absolute path
     if [ ! -d "$project_dir" ]; then
@@ -454,7 +458,7 @@ function main() {
     fi
     project_dir=$(cd "$project_dir" && pwd)
     
-    # Find project root
+    # Find project root containing package.json
     local project_root
     project_root=$(find_project_root "$project_dir") || quit "Cannot find project root (package.json)"
     _log1 "Project root: $project_root"
@@ -494,10 +498,10 @@ function main() {
     [ -n "$domain_port" ] && _log1 "Port from domain: $domain_port"
     
     # Load profile/config
-    if [ -z "$config" ]; then
-        _log1 "No config specified, finding first profile..."
-        config=$(find_first_profile) || quit "No profile found in ~/.config/deployweb and no config specified (use -c/--config)"
-        _log1 "Using profile: $config"
+    if [ -z "$opt_config" ]; then
+        _log1 "No config specified, find one..."
+        opt_config=$(find_profile "$deploy_name") || quit "No profile found in ~/.config/deployweb and no config specified (use -c/--config)"
+        _log1 "Using profile: $opt_config"
     fi
     
     server=""
@@ -507,7 +511,7 @@ function main() {
     ssh_visual_host_key=""
     sudo_pw=""
     apache_options="+Indexes +MultiViews +FollowSymLinks"
-    load_profile "$config"
+    load_profile "$opt_config"
     
     # Build project
     build_project "$project_root"

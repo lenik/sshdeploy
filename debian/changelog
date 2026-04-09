@@ -1,3 +1,12 @@
+sshdeploy (1.0.3) unstable; urgency=medium
+
+  * deployweb: default PROJECT-DIR to current directory.
+  * deployweb: auto-select profile by deploy name when config is omitted.
+  * Build with Meson and derive package version from git tags.
+  * Scripts: replace hardcoded version strings with Meson-rendered VER_DT.
+
+ -- Lenik (谢继雷) <lenik@bodz.net>  Thu, 09 Apr 2026 21:27:43 +0800
+
 sshdeploy (1.0.2) unstable; urgency=medium
 
   * runon: switch remote execution to cdrun -C, with robust argument quoting.

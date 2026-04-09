@@ -1,5 +1,5 @@
 #!/bin/bash
-    : ${RCSID:=$Id: - 0.4.0 2013-12-25 23:43:30 - $}
+    : ${RCSID:=$Id: push-to @VER_DT@ - $}
     : ${PROGRAM_TITLE:="Push project files to remote server"}
     : ${PROGRAM_SYNTAX:="[OPTIONS] [--] [REMOTE]"
                         "(REMOTE can be specified as user@host[:dir] or via -u/-h/-d options)"}

@@ -19,6 +19,9 @@ install: deployweb deployweb.1 deployweb.bash-completion runon runon.1 runon.bas
 	install -m 755 deployweb $(DESTDIR)$(BINDIR)/deployweb
 	install -m 644 deployweb.1 $(DESTDIR)$(MANDIR)/man1/deployweb.1
 	install -m 644 deployweb.bash-completion $(DESTDIR)$(BASHCOMPDIR)/deployweb
+	ln -vsnf deployweb $(DESTDIR)$(BINDIR)/dw
+	ln -vsnf deployweb.1 $(DESTDIR)$(MANDIR)/man1/dw.1
+	ln -vsnf deployweb $(DESTDIR)$(BASHCOMPDIR)/dw
 	install -m 755 push-to $(DESTDIR)$(BINDIR)/push-to
 	install -m 644 push-to.1 $(DESTDIR)$(MANDIR)/man1/push-to.1
 	install -m 644 push-to.bash-completion $(DESTDIR)$(BASHCOMPDIR)/push-to
@@ -33,6 +36,9 @@ install-symlinks:
 	@sudo ln -vsnf $(shell pwd)/deployweb /usr/bin/deployweb
 	@sudo ln -vsnf $(shell pwd)/deployweb.1 /usr/share/man/man1/deployweb.1
 	@sudo ln -vsnf $(shell pwd)/deployweb.bash-completion /usr/share/bash-completion/completions/deployweb
+	@sudo ln -vsnf /usr/bin/deployweb /usr/bin/dw
+	@sudo ln -vsnf /usr/share/man/man1/deployweb.1 /usr/share/man/man1/dw.1
+	@sudo ln -vsnf /usr/share/bash-completion/completions/deployweb /usr/share/bash-completion/completions/dw
 	@sudo ln -vsnf $(shell pwd)/push-to /usr/bin/push-to
 	@sudo ln -vsnf $(shell pwd)/push-to.1 /usr/share/man/man1/push-to.1
 	@sudo ln -vsnf $(shell pwd)/push-to.bash-completion /usr/share/bash-completion/completions/push-to
@@ -47,6 +53,9 @@ uninstall-symlinks:
 	@sudo rm -vf /usr/bin/deployweb
 	@sudo rm -vf /usr/share/man/man1/deployweb.1
 	@sudo rm -vf /usr/share/bash-completion/completions/deployweb
+	@sudo rm -vf /usr/bin/dw
+	@sudo rm -vf /usr/share/man/man1/dw.1
+	@sudo rm -vf /usr/share/bash-completion/completions/dw
 	@sudo rm -vf /usr/bin/push-to
 	@sudo rm -vf /usr/share/man/man1/push-to.1
 	@sudo rm -vf /usr/share/bash-completion/completions/push-to

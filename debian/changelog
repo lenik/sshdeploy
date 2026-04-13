@@ -1,3 +1,14 @@
+sshdeploy (1.1.0) unstable; urgency=medium
+
+  * deployweb: redesign CLI for explicit SSH/web settings and multi-server
+    virtual-host bindings.
+  * docs: refresh README and deployweb(1) for the new deployweb options and
+    config keys.
+  * bash-completion: update deployweb option/value completion for renamed and
+    newly added flags.
+
+ -- Lenik (谢继雷) <lenik@bodz.net>  Mon, 13 Apr 2026 12:00:00 +0800
+
 sshdeploy (1.0.5) unstable; urgency=medium
 
   * deployweb: preserve profile values while parsing (trim safely, handle CRLF,

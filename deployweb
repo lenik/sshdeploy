@@ -4,40 +4,102 @@
 : ${PROGRAM_SYNTAX:="[OPTIONS] PROJECT-DIR"}
 
 . shlib-import cliboot
-option -c --config =PROFILE     "Profile name or config file path"
-option -n --name =NAME          "Rename in server"
-option -d --domain =DOMAIN      "Default <name>.com"
-option -p --port =PORT          "HTTP port (can be specified multiple times)"
-option    --ssl                 "Enable HTTPS"
+option -c --config =NAME            "Profile name or config file path"
+option -h --ssh-host =HOST          "SSH server host"
+option -p --ssh-port =PORT          "SSH server port"
+option -u --ssh-user =USER          "SSH server user"
+option -i --ssh-identity =FILE      "SSH server identity file"
+option -V --ssh-visual-host-key     "SSH server visual host key"
+option -P --ssh-sudo-pw =PW         "SSH server sudo password"
+
+option -n --server =[protocol://]HOST:PORT "Add vhost binding, both HOST and PORT are optional, protocol defaults to http"
+option -r --www-root =DIR           "Root directory where --dir is relative to, default is sites"
+option -d --www-dir =DIR            "Remove dir to deploy, relative to www-root, default is project name"
+option -C --conf-name =NAME         "Apache config name, default is basename of www-dir"
+option -y --priority =NUM           "Priority, default none"
+option -O --apache-options =OPTS    "Add apache options"
+
+option -B --always                  "Do clean build always"
+option -s --sync-only               "Only sync files, don't configure Apache"
+
+option    --dryrun                  "Dry run, don't deploy files or configure Apache"
 option -q --quiet
 option -v --verbose
-option -h --help
+option    --help
 option    --version
 
-opt_config=
-name=
-domain=
-ports=()
-ssl=
+opt_config_spec=
+    ssh_host=
+    ssh_port=22
+    ssh_user="$USER"
+    ssh_identity_file=
+    ssh_visual_host_key=yes
+    ssh_sudo_pw=
+
+opt_servers=()
+opt_conf_name=
+opt_www_root=/var/www
+opt_www_dir=
+opt_apache_options="+Indexes +MultiViews +FollowSymLinks"
+
+opt_build=auto
+opt_sync=1
+opt_configure=1
+opt_dryrun=0
 
 function setopt() {
     case "$1" in
         -c|--config)
-            opt_config="$2";;
-        -n|--name)
-            name="$2";;
-        -d|--domain)
-            domain="$2";;
-        -p|--port)
-            ports+=("$2");;
-        --ssl)
-            ssl=1;;
-        -h|--help)
-            help $1; exit;;
+            opt_config_spec="$2";;
+
+        -h|--ssh-host)
+            ssh_host="$2"
+            _port=${ssh_host##*:}
+            if [ -n "$_port" ]; then
+                ssh_port=$_port
+                ssh_host=${ssh_host%:*}
+                if [ -z "$ssh_host" ]; then
+                    ssh_host="localhost"
+                fi
+            fi
+            ;;
+        -p|--ssh-port)
+            ssh_port="$2";;
+        -u|--ssh-user)
+            ssh_user="$2";;
+        -i|--ssh-identity)
+            ssh_identity_file="$2";;
+        -V|--ssh-visual-host-key)
+            ssh_visual_host_key=1;;
+        -P|--ssh-sudo-pw)
+            ssh_sudo_pw="$2";;
+
+        -n|--server)
+            opt_servers+=("$2");;
+        -r|--www-root)
+            opt_www_root="$2";;
+        -d|--www-dir)
+            opt_www_dir="$2";;
+        -C|--conf-name)
+            opt_conf_name="$2";;
+        
+        -B|--always)
+            opt_build=always;;
+        -s|--sync-only)
+            opt_sync=1
+            opt_configure=0
+            ;;
+        -y|--priority)
+            opt_priority="$2";;
+        
+        --dryrun)
+            opt_dryrun=1;;
         -q|--quiet)
             LOGLEVEL=$((LOGLEVEL - 1));;
         -v|--verbose)
             LOGLEVEL=$((LOGLEVEL + 1));;
+        --help)
+            help $1; exit;;
         --version)
             show_version; exit;;
         *)
@@ -71,7 +133,7 @@ function find_project_root() {
     return 1
 }
 
-function find_profile() {
+function find_config() {
     local config_dir="$HOME/.config/deployweb"
     if [ ! -d "$config_dir" ]; then
         return 1
@@ -97,20 +159,20 @@ function find_profile() {
     return 1
 }
 
-function load_profile() {
-    local profile_or_file="$1"
+function load_config() {
+    local name_or_file="$1"
     local config_dir="$HOME/.config/deployweb"
     local config_file=""
     
     # Check if it's an absolute path or relative path to a file
-    if [ -f "$profile_or_file" ]; then
-        config_file="$profile_or_file"
+    if [ -f "$name_or_file" ]; then
+        config_file="$name_or_file"
         _log1 "Loading config file: $config_file"
-    elif [ -f "$config_dir/$profile_or_file" ]; then
-        config_file="$config_dir/$profile_or_file"
-        _log1 "Loading profile: $profile_or_file"
+    elif [ -f "$config_dir/$name_or_file" ]; then
+        config_file="$config_dir/$name_or_file"
+        _log1 "Loading profile: $name_or_file"
     else
-        quit "Config file or profile not found: $profile_or_file"
+        quit "Invalid profile name or config file: $name_or_file"
     fi
     
     # Trim leading/trailing whitespace without touching inner content.
@@ -139,30 +201,18 @@ function load_profile() {
             value="${value%$'\r'}"
             
             case "$key" in
-                server)
-                    server="$value"
-                    ;;
-                wwwdir)
-                    wwwdir="${value%/}"
-                    if [ -z "$wwwdir" ]; then
-                        wwwdir=sites
-                    fi
-                    ;;
-                user)
-                    ssh_user="$value"
-                    ;;
-                identity_file)
-                    ssh_identity_file="$value"
-                    ;;
-                visual_host_key)
-                    ssh_visual_host_key="$value"
-                    ;;
-                sudo_pw)
-                    sudo_pw="$value"
-                    ;;
-                options)
-                    apache_options="$value"
-                    ;;
+                ssh-host)           ssh_host="$value";;
+                ssh-port)           ssh_port="$value";;
+                user)               ssh_user="$value";;
+                identity-file)      ssh_identity_file="$value";;
+                visual-host-key)    ssh_visual_host_key="$value";;
+                sudo-pw)            ssh_sudo_pw="$value";;
+                
+                server)             opt_servers+=("$value");;
+                conf-name)          opt_conf_name="$value";;
+                www-root)           opt_www_root="$value";;
+                www-dir)            opt_www_dir="$value";;
+                apache-options)     opt_apache_options="$value";;
                 *)
                     _log1 "Unknown config key: $key"
                     ;;
@@ -170,22 +220,26 @@ function load_profile() {
         fi
     done < "$config_file"
     
-    if [ -z "$server" ]; then
+    if [ "${#opt_servers[@]}" -eq 0 ]; then
         quit "Profile config missing 'server'"
     fi
-    if [ -z "$wwwdir" ]; then
-        quit "Profile config missing 'wwwdir'"
-    elif [ "${wwwdir:0:1}" != "/" ]; then
-        wwwdir=$( ssh "$server" readlink -f "$wwwdir" ) || quit "Failed to resolve wwwdir"
-    fi
-    
-    _log2 "Server: $server"
-    _log2 "WWW dir: $wwwdir"
-    [ -n "$ssh_user" ] && _log2 "SSH user: $ssh_user"
-    [ -n "$ssh_identity_file" ] && _log2 "SSH identity file: $ssh_identity_file"
-    [ -n "$ssh_visual_host_key" ] && _log2 "SSH visual host key: $ssh_visual_host_key"
-    [ -n "$sudo_pw" ] && _log2 "Sudo password configured"
-    [ -n "$apache_options" ] && _log2 "Apache options: $apache_options"
+
+    _log2 "SSH:"
+    [ -n "$ssh_host" ]              && _log2 "    host: $ssh_host"
+    [ -n "$ssh_port" ]              && _log2 "    port: $ssh_port"
+    [ -n "$ssh_user" ]              && _log2 "    user: $ssh_user"
+    [ -n "$ssh_identity_file" ]     && _log2 "    identity file: $ssh_identity_file"
+    [ -n "$ssh_visual_host_key" ]   && _log2 "    visual host key: $ssh_visual_host_key"
+    [ -n "$ssh_sudo_pw" ]           && _log2 "    sudo-pw: $ssh_sudo_pw"
+
+    _log2 "Web:"
+    for server in "${opt_servers[@]}"; do
+        _log2 "    server name: $server"
+    done
+    [ -n "$opt_conf_name" ]         && _log2 "    apache conf: $opt_conf_name"
+    [ -n "$opt_apache_options" ]    && _log2 "    apache options: $opt_apache_options"
+    [ -n "$opt_www_root" ]          && _log2 "    www root: $opt_www_root"
+    [ -n "$opt_www_dir" ]           && _log2 "    www directory: $opt_www_dir"
 }
 
 function build_project() {
@@ -198,7 +252,7 @@ function build_project() {
         quit "pnpm not found in PATH"
     fi
     
-    pnpm build || quit "Build failed"
+    Run pnpm build || quit "Build failed"
     
     if [ ! -d "dist" ]; then
         quit "Build did not create dist/ directory"
@@ -208,12 +262,12 @@ function build_project() {
 }
 
 function build_ssh_opts() {
-    local server_port="$1"
+    local ssh_port="$1"
     local ssh_opts=""
     
     # Add port if specified
-    if [ -n "$server_port" ]; then
-        ssh_opts="$ssh_opts -p $server_port"
+    if [ -n "$ssh_port" ]; then
+        ssh_opts="$ssh_opts -p $ssh_port"
     fi
     
     # Add identity file if specified
@@ -234,16 +288,16 @@ function build_ssh_opts() {
 }
 
 function build_ssh_cmd() {
-    local server_port="$1"
-    local host="$2"
+    local ssh_port="$1"
+    local ssh_host="$2"
     local ssh_opts
-    ssh_opts=$(build_ssh_opts "$server_port")
+    ssh_opts=$(build_ssh_opts "$ssh_port")
     
     local ssh_cmd="ssh$ssh_opts"
     if [ -n "$ssh_user" ]; then
-        echo "$ssh_cmd ${ssh_user}@${host}"
+        echo "$ssh_cmd ${ssh_user}@${ssh_host}"
     else
-        echo "$ssh_cmd $host"
+        echo "$ssh_cmd $ssh_host"
     fi
 }
 
@@ -257,11 +311,11 @@ function shell_quote_sq() {
 
 function setup_remote_askpass() {
     local ssh_cmd="$1"
-    if [ -n "$sudo_pw" ]; then
+    if [ -n "$ssh_sudo_pw" ]; then
         # Create askpass script on remote server
         local askpass_script="/tmp/deployweb_askpass_$$"
         # Use printf to create the script with proper escaping
-        $ssh_cmd "printf '%s\n' '#!/bin/sh' 'echo \"\$LC_SUDO_PW\"' > $askpass_script && chmod +x $askpass_script" || return 1
+        Run $ssh_cmd "printf '%s\n' '#!/bin/sh' 'echo \"\$LC_SUDO_PW\"' > $askpass_script && chmod +x $askpass_script" || return 1
         echo "$askpass_script"
     fi
 }
@@ -275,197 +329,228 @@ function cleanup_remote_askpass() {
 }
 
 function deploy_files() {
-    local project_dir="$1"
-    local server="$2"
-    local wwwdir="$3"
-    local deploy_name="$4"
+    local local_dir="$1"
+    local remote_dir="$2"
+
+    local_dir="${local_dir%/}"
+    remote_dir="${remote_dir%/}"
     
-    local dist_dir="$project_dir/dist"
-    local remote_path="$wwwdir/$deploy_name"
-    
-    _log1 "Deploying files to $server:$remote_path"
-    
-    # Extract host and port from server
-    local host="${server%%:*}"
-    local port=""
-    if [[ "$server" =~ : ]]; then
-        port="${server##*:}"
-    fi
+    _log1 "Deploy $local_dir/ to $ssh_host:$remote_dir/"
     
     # Build SSH options for rsync
     local ssh_opts
-    ssh_opts=$(build_ssh_opts "$port")
+    ssh_opts=$(build_ssh_opts "$ssh_port")
 
     # Build ssh command and ensure remote directory exists before rsync.
     local ssh_cmd
-    ssh_cmd=$(build_ssh_cmd "$port" "$host")
-    $ssh_cmd "mkdir -p \"${remote_path}\"" || quit "Failed to create remote directory: $remote_path"
+    ssh_cmd=$(build_ssh_cmd "$ssh_port" "$ssh_host")
+    Run $ssh_cmd "mkdir -p \"${remote_dir}\"" || quit "Failed to create remote directory: $remote_dir"
     
     # Build rsync SSH command (without host - host goes in remote path)
-    local rsync_ssh_cmd="ssh$ssh_opts"
+    local rsync_ssh_cmd="ssh $ssh_opts"
     
     # Build remote path with user if specified
     local remote_target
     if [ -n "$ssh_user" ]; then
-        remote_target="${ssh_user}@${host}:${remote_path}/"
+        remote_target="${ssh_user}@${ssh_host}:${remote_dir}"
     else
-        remote_target="${host}:${remote_path}/"
+        remote_target="${ssh_host}:${remote_dir}"
     fi
     
     # Execute rsync
-    rsync -avz --delete -e "$rsync_ssh_cmd" "$dist_dir/" "$remote_target" || quit "Rsync failed"
+    Run rsync -avz --delete -e "$rsync_ssh_cmd" "$local_dir/" "$remote_target/" || quit "Rsync failed"
     
     _log1 "Files deployed"
 }
 
-function mkvhost() {
-    local domain="$1"
-    local deploy_name="$2"
-    local document_root="$3"
-    local ssl_enabled="$4"
-    local apache_opts="$5"
-    shift 5
-    local ports_array=("$@")
-    local http_ports=()
-    local https_ports=()
-    
-    if [ "$ssl_enabled" = "1" ]; then
-        https_ports=("${ports_array[@]}")
-    else
-        http_ports=("${ports_array[@]}")
-    fi
-    
-    if [ ${#ports_array[@]} -eq 0 ]; then
-        if [ "$ssl_enabled" = "1" ]; then
-            https_ports=(443)
-            http_ports=(80)
+function list_protocols() {
+    local svr
+    for svr in "${opt_servers[@]}"; do
+        local protocol hp=${svr#*://}
+        if [ "$hp" == "$svr" ]; then
+            protocol="http"
         else
-            http_ports=(80)
+            protocol="${svr%%://*}"
         fi
+        echo "$protocol"
+    done | sort -u
+}
+
+function list_ports() {
+    local svr
+    for svr in "${opt_servers[@]}"; do
+        local protocol hp=${svr#*://}
+        if [ "$hp" == "$svr" ]; then
+            protocol="http"
+        else
+            protocol="${svr%%://*}"
+        fi
+        local host="${hp%:*}"
+        local port=""
+        if [ "$host" == "$hp" ]; then
+            case "$protocol" in
+                https) port=443;;
+                *)     port=80;;
+            esac
+        else
+            port="${hp##*:}"
+        fi
+        echo "$port"
+    done | sort -nu
+}
+
+function list_servers_for() {
+    local port_pattern="$1"
+    local svr
+    for svr in "${opt_servers[@]}"; do
+        local protocol hp=${svr#*://}
+        if [ "$hp" == "$svr" ]; then
+            protocol="http"
+        else
+            protocol="${svr%%://*}"
+        fi
+        local host="${hp%:*}"
+        local port=""
+        if [ "$host" == "$hp" ]; then
+            case "$protocol" in
+                https) port=443;;
+                *)     port=80;;
+            esac
+        else
+            port="${hp##*:}"
+        fi
+        if [ "$port" == $port_pattern ]; then
+            echo "$svr"
+        fi
+    done | sort -u
+}
+
+function print_vhost() {
+    local conf_name="$1"
+    local port="$2"
+    local document_root="$3"
+    local apache_opts="$4"
+    local server="$5"
+    shift 5
+    local server_alts=("$@")
+
+    local hp="${server#*://}"
+    local host="${hp%:*}"
+
+    local protocol="${server%%://*}"
+    if [ "$protocol" == "$server" ]; then
+        case "$port" in
+            *43) protocol="https";;
+            *)   protocol="http";;
+        esac
     fi
+
+    echo "<VirtualHost *:$port>"
+    echo "    ServerName $host"
     
-    for port in "${https_ports[@]}"; do
-        # HTTPS VirtualHost
-        echo "<VirtualHost *:$port>"
-        echo "    ServerName $domain"
-        
-        # Add www subdomain if domain doesn't start with www
-        if [[ ! "$domain" =~ ^www\. ]]; then
-            echo "    ServerAlias www.$domain"
-        fi
-        
-        echo "    DocumentRoot $document_root"
-        echo
-        echo "    SSLEngine on"
-        echo "    SSLCertificateFile /etc/ssl/certs/${deploy_name}.crt"
-        echo "    SSLCertificateKeyFile /etc/ssl/private/${deploy_name}.key"
-        echo
-        echo "    <Directory $document_root>"
-        echo "        Options $apache_opts"
-        echo "        AllowOverride All"
-        echo "        Require all granted"
-        echo "    </Directory>"
-        echo
-        echo "    ErrorLog \${APACHE_LOG_DIR}/${deploy_name}_ssl_error.log"
-        echo "    CustomLog \${APACHE_LOG_DIR}/${deploy_name}_ssl_access.log combined"
-        echo "</VirtualHost>"
-        echo
+    for alt in "${server_alts[@]}"; do
+        local alt_hp="${alt#*://}"
+        local alt_host="${alt_hp%:*}"
+        echo "    ServerAlias $alt_host"
     done
 
-    for port in "${http_ports[@]}"; do
-        # HTTP VirtualHost
-        echo "<VirtualHost *:$port>"
-        echo "    ServerName $domain"
-        
-        # Add www subdomain if domain doesn't start with www
-        if [[ ! "$domain" =~ ^www\. ]]; then
-            echo "    ServerAlias www.$domain"
-        fi
-        
-        echo "    DocumentRoot $document_root"
+    echo
+    echo "    ErrorLog \${APACHE_LOG_DIR}/${conf_name}.error.log"
+    echo "    CustomLog \${APACHE_LOG_DIR}/${conf_name}.access.log combined"
+
+    echo        
+    echo "    DocumentRoot $document_root"
+    echo "    <Directory $document_root>"
+    echo "        Options $apache_opts"
+    echo "        AllowOverride All"
+    echo "        Require all granted"
+    echo "    </Directory>"
+
+    if [ "$protocol" = "https" ]; then
         echo
-        echo "    <Directory $document_root>"
-        echo "        Options $apache_opts"
-        echo "        AllowOverride All"
-        echo "        Require all granted"
+        echo "    SSLEngine on"
+        # echo "    SSLCertificateFile /etc/ssl/certs/${conf_name}.crt"
+        # echo "    SSLCertificateKeyFile /etc/ssl/private/${conf_name}.key"
+        echo "    SSLCertificateFile /etc/letsencrypt/live/$host/fullchain.pem"
+        echo "    SSLCertificateKeyFile /etc/letsencrypt/live/$host/privkey.pem"
+        echo "    Include /etc/letsencrypt/options-ssl-apache.conf"
+        echo
+        echo "    #SSLOptions +FakeBasicAuth +ExportCertData +StrictRequire"
+        echo "    <FilesMatch \"\.(?:cgi|shtml|phtml|php)\$\">"
+        echo "            SSLOptions +StdEnvVars"
+        echo "    </FilesMatch>"
+        echo "    <Directory /usr/lib/cgi-bin>"
+        echo "            SSLOptions +StdEnvVars"
         echo "    </Directory>"
-        echo
-        echo "    ErrorLog \${APACHE_LOG_DIR}/${deploy_name}_error.log"
-        echo "    CustomLog \${APACHE_LOG_DIR}/${deploy_name}_access.log combined"
-        echo "</VirtualHost>"
-    done
+    fi
+    echo "</VirtualHost>"
 }
 
 function configure_apache() {
-    local server="$1"
-    local domain="$2"
-    local deploy_name="$3"
-    local wwwdir="$4"
-    local ssl_enabled="$5"
-    shift 5
-    local ports_array=("$@")
+    local conf_name="$1"
+    local doc_root="$2"
     
-    _log1 "Configuring Apache virtual host for $domain"
-    
-    # Extract host and port from server
-    local host="${server%%:*}"
-    local server_port=""
-    if [[ "$server" =~ : ]]; then
-        server_port="${server##*:}"
-    fi
+    _log1 "Configure apache2"
     
     # Build SSH command
     local ssh_cmd
-    ssh_cmd=$(build_ssh_cmd "$server_port" "$host")
+    ssh_cmd=$(build_ssh_cmd "$ssh_port" "$ssh_host")
     
     # Setup remote askpass script if sudo password is configured
     local askpass_script=""
-    if [ -n "$sudo_pw" ]; then
+    if [ -n "$ssh_sudo_pw" ]; then
         askpass_script=$(setup_remote_askpass "$ssh_cmd") || quit "Failed to setup remote askpass script"
     fi
     
     # Create Apache virtual host config
-    local vhost_config="/etc/apache2/sites-available/${deploy_name}.conf"
-    
-    # document_root is constructed from normalized wwwdir (already absolute, no trailing /)
-    local document_root="$wwwdir/$deploy_name"
+    local vhost_config="/etc/apache2/sites-available/${conf_name}.conf"
     
     # Build sudo command
     local sudo_cmd
     if [ -n "$askpass_script" ]; then
         local quoted_pw
         local quoted_askpass
-        quoted_pw=$(shell_quote_sq "$sudo_pw")
+        quoted_pw=$(shell_quote_sq "$ssh_sudo_pw")
         quoted_askpass=$(shell_quote_sq "$askpass_script")
         sudo_cmd="LC_SUDO_PW=$quoted_pw SUDO_ASKPASS=$quoted_askpass sudo -A"
     else
         sudo_cmd="sudo"
     fi
     
-    # Enable SSL module if SSL is enabled
-    if [ "$ssl_enabled" = "1" ]; then
-        _log1 "Enabling SSL module"
-        $ssh_cmd "$sudo_cmd a2enmod ssl" || quit "Failed to enable SSL module"
-    fi
+    while read protocol _; do
+        case "$protocol" in
+            https)
+                _log1 "Enabling SSL module"
+                Run $ssh_cmd "$sudo_cmd a2enmod ssl" || quit "Failed to enable SSL module"
+                ;;
+        esac
+    done < <(list_protocols)
     
     # Create temporary file for VirtualHost config
     local tmp_file=$(mktemp)
     trap "rm -f $tmp_file; cleanup_remote_askpass \"$ssh_cmd\" \"$askpass_script\"" EXIT
     
-    # Generate virtual host configuration
-    mkvhost "$domain" "$deploy_name" "$document_root" "$ssl_enabled" "$apache_options" "${ports_array[@]}" > "$tmp_file"
+    # Generate virtual host configurations
+    local ports=( $(list_ports) )
+
+    for port in "${ports[@]}"; do
+        local servers=( $(list_servers_for "$port") )
+        echo >> "$tmp_file"
+        print_vhost "$conf_name" "$port" "$doc_root" "$opt_apache_options" \
+            "${servers[@]}" >> "$tmp_file"
+    done
     
     # Create config file on remote server
     _log2 "Creating Apache config: $vhost_config"
-    $ssh_cmd "$sudo_cmd tee $vhost_config > /dev/null" < "$tmp_file" || quit "Failed to create Apache config"
+    Run $ssh_cmd "$sudo_cmd tee $vhost_config > /dev/null" < "$tmp_file" || quit "Failed to create Apache config"
     
     # Enable site
     _log2 "Enabling site"
-    $ssh_cmd "$sudo_cmd a2ensite ${deploy_name}.conf" || quit "Failed to enable site"
+    Run $ssh_cmd "$sudo_cmd a2ensite ${conf_name}.conf" || quit "Failed to enable site"
     
     # Reload Apache
     _log1 "Reloading Apache"
-    $ssh_cmd "$sudo_cmd systemctl reload apache2" || quit "Failed to reload Apache"
+    Run $ssh_cmd "$sudo_cmd systemctl reload apache2" || quit "Failed to reload Apache"
     
     _log1 "Apache configured and reloaded"
     
@@ -480,78 +565,87 @@ function main() {
     if [ $# != 0 ]; then
         project_dir="$1"
     fi
-    
-    # Resolve absolute path
     if [ ! -d "$project_dir" ]; then
         quit "Project directory not found: $project_dir"
     fi
+    # Resolve absolute path
     project_dir=$(cd "$project_dir" && pwd)
+    project_name=${project_dir##*/}
     
     # Find project root containing package.json
     local project_root
     project_root=$(find_project_root "$project_dir") || quit "Cannot find project root (package.json)"
+
     _log1 "Project root: $project_root"
-    
-    # Determine deploy name (convert to lowercase)
-    local deploy_name
-    if [ -n "$name" ]; then
-        deploy_name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
-    else
-        deploy_name=$(basename "$project_root" | tr '[:upper:]' '[:lower:]')
-    fi
-    _log1 "Deploy name: $deploy_name"
-    
-    # Determine domain and extract port if specified
-    local domain_port=""
-    if [ -z "$domain" ]; then
-        domain="${deploy_name}.com"
-    else
-        # Check if domain contains a port (format: domain:port)
-        if [[ "$domain" =~ :([0-9]+)$ ]]; then
-            domain_port="${BASH_REMATCH[1]}"
-            domain="${domain%:*}"
-            # Add port to ports array if not already present
-            local port_exists=0
-            for p in "${ports[@]}"; do
-                if [ "$p" = "$domain_port" ]; then
-                    port_exists=1
-                    break
-                fi
-            done
-            if [ $port_exists -eq 0 ]; then
-                ports+=("$domain_port")
-            fi
-        fi
-    fi
-    _log1 "Domain: $domain"
-    [ -n "$domain_port" ] && _log1 "Port from domain: $domain_port"
+    _log1 "Project name: $project_name"
     
     # Load profile/config
-    if [ -z "$opt_config" ]; then
+    if [ -z "$opt_config_spec" ]; then
         _log1 "No config specified, find one..."
-        opt_config=$(find_profile "$deploy_name") || quit "No profile found in ~/.config/deployweb and no config specified (use -c/--config)"
-        _log1 "Using profile: $opt_config"
+        opt_config_spec=$(find_config "$project_name") || quit "No profile found in ~/.config/deployweb and no config specified (use -c/--config)"
+        _log1 "Using config: $opt_config_spec"
+    fi
+
+    load_config "$opt_config_spec"
+        if [ "${#opt_servers[@]}" -eq 0 ]; then
+            opt_servers=( "$project_name.bodz.net" )
+        fi
+        if [ -z "$ssh_host" ]; then
+            ssh_host="${opt_servers[0]}"
+        fi
+        if [ "${opt_www_root:0:1}" != "/" ]; then
+            local ssh_cmd=$(build_ssh_cmd "$ssh_port" "$ssh_host")
+            if ! opt_www_root=$( Run $ssh_cmd readlink -f "$opt_www_root" ); then
+                quit "Failed to resolve www-root ($opt_www_root)."
+            fi
+        fi
+        if [ -z "$opt_www_dir" ]; then
+            opt_www_dir="$project_name"
+        fi
+        if [ -z "$opt_conf_name" ]; then
+            opt_conf_name="${opt_www_dir##*/}"
+        fi
+
+    # Build project
+    need_build=0
+    case "$opt_build" in
+        always)
+            need_build=1
+            ;;
+        auto)
+            if [ ! -d "$project_root/dist" ]; then
+                need_build=1
+            fi
+            ;;
+        never)
+            need_build=0
+            ;;
+    esac
+    if [ "$need_build" = 1 ]; then
+        build_project "$project_root"
     fi
     
-    server=""
-    wwwdir=""
-    ssh_user=""
-    ssh_identity_file=""
-    ssh_visual_host_key=""
-    sudo_pw=""
-    apache_options="+Indexes +MultiViews +FollowSymLinks"
-    load_profile "$opt_config"
-    
-    # Build project
-    build_project "$project_root"
-    
     # Deploy files
-    deploy_files "$project_root" "$server" "$wwwdir" "$deploy_name"
+    if [ "$opt_sync" = 1 ]; then
+        deploy_files "$project_root/dist" "$opt_www_root/$opt_www_dir"
+    fi
     
     # Configure Apache
-    configure_apache "$server" "$domain" "$deploy_name" "$wwwdir" "$ssl" "${ports[@]}"
+    if [ "$opt_configure" = 1 ]; then
+        conf_name="${opt_conf_name:-${project_name}}"
+        doc_root="$opt_www_root/$opt_www_dir"
+        configure_apache "$conf_name" "$doc_root" "${opt_servers[@]}"
+    fi
     
     _log1 "Deployment completed successfully"
+}
+
+function Run() {
+    if [ "$opt_dryrun" != 1 ]; then
+        "$@"
+    else
+        _log1 "Dry run: $*"
+    fi
 }
 
 boot "$@"

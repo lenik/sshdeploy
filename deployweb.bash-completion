@@ -8,7 +8,7 @@ _deployweb() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     
-    opts="-c --config -n --name -d --domain -p --port --ssl -q --quiet -v --verbose -h --help --version"
+    opts="-c --config -h --ssh-host -p --ssh-port -u --ssh-user -i --ssh-identity -V --ssh-visual-host-key -P --ssh-sudo-pw -n --server -r --www-root -d --www-dir -C --conf-name -y --priority -O --apache-options -B --always -s --sync-only --dryrun -q --quiet -v --verbose --help --version"
     
     case "${prev}" in
         -c|--config)
@@ -19,17 +19,38 @@ _deployweb() {
             fi
             return 0
             ;;
-        -n|--name)
-            # No completion for name
+        -h|--ssh-host)
+            # Complete hosts from known_hosts (best effort)
+            COMPREPLY=($(compgen -A hostname -- "$cur"))
             return 0
             ;;
-        -d|--domain)
-            # No completion for domain
+        -p|--ssh-port|-y|--priority)
+            # Suggest common ports and numeric values
+            COMPREPLY=($(compgen -W "22 80 443 8080 8443" -- "$cur"))
             return 0
             ;;
-        -p|--port)
-            # Suggest common ports
-            COMPREPLY=($(compgen -W "80 443 8080 8443 3000 5000 9000" -- "$cur"))
+        -u|--ssh-user)
+            # Complete local users
+            COMPREPLY=($(compgen -u -- "$cur"))
+            return 0
+            ;;
+        -i|--ssh-identity)
+            # Complete key files
+            COMPREPLY=($(compgen -f -- "$cur"))
+            return 0
+            ;;
+        -n|--server)
+            # Suggest server binding formats
+            COMPREPLY=($(compgen -W "example.com www.example.com:80 https://example.com:443 http://example.com:8080" -- "$cur"))
+            return 0
+            ;;
+        -r|--www-root|-d|--www-dir)
+            # Complete local directories as path hints
+            COMPREPLY=($(compgen -d -- "$cur"))
+            return 0
+            ;;
+        -C|--conf-name|-O|--apache-options|-P|--ssh-sudo-pw)
+            # No completion for free-form values
             return 0
             ;;
     esac

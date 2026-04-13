@@ -10,25 +10,56 @@ the project root (by looking for package.json), builds the project using pnpm,
 syncs the dist/ directory to the server, and configures Apache virtual hosts.
 .SH OPTIONS
 .TP
-\fB\-c\fR, \fB\-\-config\fR \fIPROFILE\fR
-Select server profile name or config file path. If not specified, the first
-profile found in ~/.config/deployweb/ will be used.
+\fB\-c\fR, \fB\-\-config\fR \fINAME\fR
+Select profile name or config file path. If not specified, deployweb tries to
+auto-select a profile from \fI~/.config/deployweb/\fR using the project name.
 .TP
-\fB\-n\fR, \fB\-\-name\fR \fINAME\fR
-Rename the deployment on the server. By default, the basename of PROJECT-DIR
-is used.
+\fB\-h\fR, \fB\-\-ssh-host\fR \fIHOST\fR
+SSH host used for file sync and remote commands. Accepts \fIhost\fR or
+\fIhost:port\fR.
 .TP
-\fB\-d\fR, \fB\-\-domain\fR \fIDOMAIN\fR
-Set the domain name for the virtual host. Can include a port in the format
-\fIdomain:PORT\fR. Defaults to \fI<name>.com\fR.
+\fB\-p\fR, \fB\-\-ssh-port\fR \fIPORT\fR
+SSH port (default: 22).
 .TP
-\fB\-p\fR, \fB\-\-port\fR \fIPORT\fR
-Specify HTTP port(s). Can be specified multiple times. If a port is specified,
-only one VirtualHost (HTTP or HTTPS) will be created per port.
+\fB\-u\fR, \fB\-\-ssh-user\fR \fIUSER\fR
+SSH user.
 .TP
-\fB\-\-ssl\fR
-Enable HTTPS. Creates HTTPS VirtualHost on the specified port(s), or port 443
-if no port is specified.
+\fB\-i\fR, \fB\-\-ssh-identity\fR \fIFILE\fR
+SSH identity file.
+.TP
+\fB\-V\fR, \fB\-\-ssh-visual-host-key\fR
+Enable SSH visual host key output.
+.TP
+\fB\-P\fR, \fB\-\-ssh-sudo-pw\fR \fIPW\fR
+Sudo password for remote commands; uses \fBsudo -A\fR.
+.TP
+\fB\-n\fR, \fB\-\-server\fR \fI[protocol://]HOST[:PORT]\fR
+Add Apache virtual-host binding. May be used multiple times. Protocol defaults
+to HTTP when omitted.
+.TP
+\fB\-r\fR, \fB\-\-www-root\fR \fIDIR\fR
+Remote web root directory (default: \fI/var/www\fR).
+.TP
+\fB\-d\fR, \fB\-\-www-dir\fR \fIDIR\fR
+Deploy directory relative to \fB\-\-www-root\fR (default: project name).
+.TP
+\fB\-C\fR, \fB\-\-conf-name\fR \fINAME\fR
+Apache config/site name (default: basename of \fB\-\-www-dir\fR).
+.TP
+\fB\-y\fR, \fB\-\-priority\fR \fINUM\fR
+Reserved priority option.
+.TP
+\fB\-O\fR, \fB\-\-apache-options\fR \fIOPTS\fR
+Apache \fB<Directory>\fR options string.
+.TP
+\fB\-B\fR, \fB\-\-always\fR
+Always run \fBpnpm build\fR before deployment.
+.TP
+\fB\-s\fR, \fB\-\-sync-only\fR
+Sync files only; skip Apache configuration.
+.TP
+\fB\-\-dryrun\fR
+Dry run mode. Print actions without executing remote changes.
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
 Reduce verbosity.
@@ -36,52 +67,68 @@ Reduce verbosity.
 \fB\-v\fR, \fB\-\-verbose\fR
 Increase verbosity.
 .TP
-\fB\-h\fR, \fB\-\-help\fR
+\fB\-\-help\fR
 Display help message and exit.
 .TP
 \fB\-\-version\fR
 Display version information and exit.
 .SH CONFIGURATION
-Profile configuration files are stored in \fI~/.config/deployweb/\fR. Each profile
+Configuration files are stored in \fI~/.config/deployweb/\fR. Each profile
 is a text file with the following format:
 .PP
 .RS
 .nf
-server: <host[:port]>
-wwwdir: <path>
+ssh-host: <host>
+ssh-port: <port>
 user: <ssh username>
-identity_file: <keyfile>
-visual_host_key: yes/no
-sudo_pw: <password>
-options: <apache directory options>
+identity-file: <keyfile>
+visual-host-key: yes/no
+sudo-pw: <password>
+server: [protocol://]host[:port]
+www-root: <path>
+www-dir: <path>
+conf-name: <name>
+apache-options: <apache directory options>
 .fi
 .RE
 .PP
 The configuration options are:
 .TP
-\fIserver\fR
-Server hostname or IP address, optionally followed by a colon and port number.
+\fIssh-host\fR
+SSH target host used for rsync/remote commands.
 .TP
-\fIwwwdir\fR
+\fIssh-port\fR (optional)
+SSH port. Defaults to 22.
+.TP
+\fIserver\fR
+Apache virtual host binding in \fI[protocol://]host[:port]\fR form.
+.TP
+\fIwww-root\fR
 Base directory on the server where websites are deployed.
+.TP
+\fIwww-dir\fR
+Deploy directory under \fIwww-root\fR.
 .TP
 \fIuser\fR (optional)
 SSH username for connecting to the server.
 .TP
-\fIidentity_file\fR (optional)
+\fIidentity-file\fR (optional)
 Path to SSH private key file.
 .TP
-\fIvisual_host_key\fR (optional)
+\fIvisual-host-key\fR (optional)
 Set to "yes" or "no" to control SSH host key verification
 (StrictHostKeyChecking).
 .TP
-\fIsudo_pw\fR (optional)
+\fIsudo-pw\fR (optional)
 Sudo password for remote commands. When specified, uses \fBsudo -A\fR
 with an askpass script that reads from \fILC_SUDO_PW\fR environment
 variable.
 .TP
-\fIoptions\fR (optional)
-Apache Directory options. Defaults to "\-Indexes +FollowSymLinks" if
+\fIconf-name\fR (optional)
+Apache config/site name.
+.TP
+\fIapache-options\fR (optional)
+Apache Directory options. Defaults to "\fB+Indexes +MultiViews +FollowSymLinks\fR" if
 not specified.
 .SH WORKFLOW
 The deployment process follows these steps:
@@ -90,9 +137,9 @@ Find project root by searching for package.json starting from PROJECT-DIR
 .IP 2. 4
 Build the project using \fBpnpm build\fR
 .IP 3. 4
-Rsync the dist/ directory to the server at \fI<wwwdir>/<name>\fR
+Rsync the \fIdist/\fR directory to \fI<www-root>/<www-dir>\fR
 .IP 4. 4
-Generate and install Apache virtual host configuration
+Generate and install Apache virtual host configuration from \fIserver\fR entries
 .IP 5. 4
 Enable the site and reload Apache
 .SH EXAMPLES
@@ -100,17 +147,14 @@ Enable the site and reload Apache
 Deploy to default profile:
 .B deployweb /path/to/project
 .TP
-Deploy with specific profile and domain:
-.B deployweb -c production -d example.com /path/to/project
+Deploy with specific profile and server binding:
+.B deployweb -c production -n example.com /path/to/project
 .TP
-Deploy with HTTPS on custom port:
-.B deployweb -d example.com:8443 --ssl /path/to/project
+Deploy with mixed HTTP and HTTPS bindings:
+.B deployweb -n example.com -n https://www.example.com:443 /path/to/project
 .TP
-Deploy with multiple HTTP ports:
-.B deployweb -p 80 -p 8080 -d example.com /path/to/project
-.TP
-Deploy with custom name:
-.B deployweb -n mysite -d mysite.com /path/to/project
+Deploy with custom remote root and sync only:
+.B deployweb -r /srv/www -d app/current -s /path/to/project
 .SH FILES
 .TP
 \fI~/.config/deployweb/\fR

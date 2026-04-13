@@ -81,6 +81,15 @@ install_data(
   install_mode: 'rw-r--r--',
 )
 
+meson.add_install_script(
+  'sh', '-c',
+  'set -eu; '
+  + 'prefix="${MESON_INSTALL_DESTDIR_PREFIX:-${DESTDIR}${MESON_INSTALL_PREFIX}}"; '
+  + 'ln -vsnf deployweb "${prefix}/' + bindir + '/dw"; '
+  + 'ln -vsnf deployweb.1 "${prefix}/' + man1dir + '/dw.1"; '
+  + 'ln -vsnf deployweb "${prefix}/' + bash_completion_dir + '/dw"'
+)
+
 source_root = meson.project_source_root()
 
 run_target(
@@ -94,6 +103,9 @@ run_target(
     + 'sudo ln -vsnf "' + source_root + '/deployweb" /usr/bin/deployweb; '
     + 'sudo ln -vsnf "' + source_root + '/deployweb.1" /usr/share/man/man1/deployweb.1; '
     + 'sudo ln -vsnf "' + source_root + '/deployweb.bash-completion" /usr/share/bash-completion/completions/deployweb; '
+    + 'sudo ln -vsnf /usr/bin/deployweb /usr/bin/dw; '
+    + 'sudo ln -vsnf /usr/share/man/man1/deployweb.1 /usr/share/man/man1/dw.1; '
+    + 'sudo ln -vsnf /usr/share/bash-completion/completions/deployweb /usr/share/bash-completion/completions/dw; '
     + 'sudo ln -vsnf "' + source_root + '/push-to" /usr/bin/push-to; '
     + 'sudo ln -vsnf "' + source_root + '/push-to.1" /usr/share/man/man1/push-to.1; '
     + 'sudo ln -vsnf "' + source_root + '/push-to.bash-completion" /usr/share/bash-completion/completions/push-to; '
@@ -115,6 +127,9 @@ run_target(
     + 'sudo rm -vf /usr/bin/deployweb; '
     + 'sudo rm -vf /usr/share/man/man1/deployweb.1; '
     + 'sudo rm -vf /usr/share/bash-completion/completions/deployweb; '
+    + 'sudo rm -vf /usr/bin/dw; '
+    + 'sudo rm -vf /usr/share/man/man1/dw.1; '
+    + 'sudo rm -vf /usr/share/bash-completion/completions/dw; '
     + 'sudo rm -vf /usr/bin/push-to; '
     + 'sudo rm -vf /usr/share/man/man1/push-to.1; '
     + 'sudo rm -vf /usr/share/bash-completion/completions/push-to; '

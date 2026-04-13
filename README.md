@@ -13,12 +13,12 @@ This package includes several utilities:
 
 ## Features
 
-- Automatically finds project root (package.json)
-- Builds projects using `pnpm build`
-- Syncs files via rsync
-- Configures Apache virtual hosts
-- Supports multiple ports and HTTPS
-- SSH configuration via profiles
+- Automatically finds project root (`package.json`)
+- Builds projects using `pnpm build` when `dist/` is missing (or always with `--always`)
+- Syncs files via `rsync`
+- Configures Apache virtual hosts from one or more `--server` bindings
+- Supports mixed HTTP/HTTPS vhosts and per-binding ports
+- SSH + deployment configuration via profile files
 
 ## Installation
 
@@ -53,14 +53,25 @@ deployweb [OPTIONS] PROJECT-DIR
 
 ### Options
 
-- `-c, --config PROFILE` - Select server profile or config file path
-- `-n, --name NAME` - Rename deployment on server
-- `-d, --domain DOMAIN` - Set domain (can include port: `domain:PORT`)
-- `-p, --port PORT` - Specify HTTP port(s), can be used multiple times
-- `--ssl` - Enable HTTPS (automatically enables Apache SSL module)
+- `-c, --config NAME` - Select profile name or config file path
+- `-h, --ssh-host HOST` - SSH host (accepts `host` or `host:port`)
+- `-p, --ssh-port PORT` - SSH port
+- `-u, --ssh-user USER` - SSH user
+- `-i, --ssh-identity FILE` - SSH identity file
+- `-V, --ssh-visual-host-key` - Enable SSH visual host key display
+- `-P, --ssh-sudo-pw PW` - Sudo password for remote `sudo -A`
+- `-n, --server [protocol://]HOST[:PORT]` - Add vhost binding (repeatable)
+- `-r, --www-root DIR` - Remote web root (default: `/var/www`)
+- `-d, --www-dir DIR` - Deploy subdirectory under `www-root` (default: project name)
+- `-C, --conf-name NAME` - Apache site config name (default: basename of `www-dir`)
+- `-y, --priority NUM` - Reserved priority option
+- `-O, --apache-options OPTS` - Apache `<Directory>` options
+- `-B, --always` - Always run build
+- `-s, --sync-only` - Sync files only, skip Apache config
+- `--dryrun` - Print planned actions without changing remote state
 - `-q, --quiet` - Reduce verbosity
 - `-v, --verbose` - Increase verbosity
-- `-h, --help` - Show help
+- `--help` - Show help
 - `--version` - Show version
 
 ### Examples
@@ -70,65 +81,78 @@ Deploy to default profile:
 deployweb /path/to/project
 ```
 
-Deploy with specific profile and domain:
+Deploy with specific profile and server binding:
 ```bash
-deployweb -c production -d example.com /path/to/project
+deployweb -c production -n example.com /path/to/project
 ```
 
-Deploy with HTTPS on custom port:
+Deploy with mixed HTTP/HTTPS bindings:
 ```bash
-deployweb -d example.com:8443 --ssl /path/to/project
+deployweb -n example.com -n https://example.com:443 /path/to/project
 ```
 
-Deploy with multiple HTTP ports:
+Deploy to custom remote directory, sync only:
 ```bash
-deployweb -p 80 -p 8080 -d example.com /path/to/project
+deployweb -r /srv/www -d myapp/current -s /path/to/project
 ```
 
 ## Configuration
 
-Profile configuration files are stored in `~/.config/deployweb/`. Each profile is a text file:
+Configuration files are stored in `~/.config/deployweb/`. Each profile is a text file:
 
 ```
-server: <host[:port]>
-wwwdir: <path>
+ssh-host: <host>
+ssh-port: <port>
 user: <ssh username>
-identity_file: <keyfile>
-visual_host_key: yes/no
-sudo_pw: <password>
-options: <apache directory options>
+identity-file: <keyfile>
+visual-host-key: yes/no
+sudo-pw: <password>
+server: [protocol://]host[:port]   # repeatable
+www-root: <path>
+www-dir: <path>
+conf-name: <apache site name>
+apache-options: <apache directory options>
 ```
 
 ### Configuration Options
 
-- `server` - Server hostname/IP, optionally with port
-- `wwwdir` - Base directory for website deployments
+- `ssh-host` - SSH target host used for rsync/remote commands
+- `ssh-port` - SSH port (default: `22`)
 - `user` - SSH username (optional)
-- `identity_file` - SSH private key path (optional)
-- `visual_host_key` - SSH host key verification: yes/no (optional)
-- `sudo_pw` - Sudo password for remote commands (optional, uses `sudo -A`)
-- `options` - Apache Directory options (optional, defaults to `-Indexes +FollowSymLinks`)
+- `identity-file` - SSH private key path (optional)
+- `visual-host-key` - Visual host key setting passed to SSH (optional)
+- `sudo-pw` - Sudo password for remote commands (optional, uses `sudo -A`)
+- `server` - Vhost binding for Apache (`http://`/`https://` optional, defaults to HTTP)
+- `www-root` - Remote base directory (default: `/var/www`)
+- `www-dir` - Directory under `www-root` to deploy (default: project name)
+- `conf-name` - Apache site config name (default: basename of `www-dir`)
+- `apache-options` - Apache `<Directory>` options (optional)
 
 ### Example Profile
 
 Create `~/.config/deployweb/production`:
 
 ```
-server: myserver.com:22
-wwwdir: /var/www
+ssh-host: myserver.com
+ssh-port: 22
 user: deploy
-identity_file: ~/.ssh/deploy_key
-visual_host_key: yes
+identity-file: ~/.ssh/deploy_key
+visual-host-key: yes
+server: example.com
+server: https://www.example.com:443
+www-root: /var/www
+www-dir: example
+conf-name: example
 ```
 
 ## Workflow
 
 1. Finds project root by searching for `package.json`
-2. Builds project using `pnpm build`
-3. Rsyncs `dist/` directory to server
-4. Enables Apache SSL module (if `--ssl` is specified)
-5. Generates Apache virtual host configuration
-6. Enables site and reloads Apache
+2. Loads selected profile (or auto-selects one by project name)
+3. Builds with `pnpm build` when needed
+4. Rsyncs `dist/` to `<www-root>/<www-dir>`
+5. Generates Apache virtual host configuration from `--server` bindings
+6. Enables required modules/sites and reloads Apache
 
 ## runon
 
